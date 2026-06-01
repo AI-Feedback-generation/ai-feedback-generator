@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FeedbackItem, InteractionType } from "../types";
 
 interface FeedbackListProps {
@@ -34,82 +34,65 @@ interface FeedbackAlertCardProps {
 }
 
 function FeedbackAlertCard({ item, onInteraction }: FeedbackAlertCardProps) {
-  const [accepted, setAccepted] = useState(false);
-  const [presented, setPresented] = useState(false);
+  const [phase, setPhase] = useState<"prompt" | "detail">("prompt");
 
-  // Log when feedback is first presented to user
+  // Fire "presented" once on mount. Use a ref to avoid stale-closure issues
+  // without adding onInteraction to the dep array (it's an inline arrow that
+  // changes reference every render, which would retrigger the effect).
+  const onInteractionRef = useRef(onInteraction);
+  onInteractionRef.current = onInteraction;
   useEffect(() => {
-    if (!presented) {
-      setPresented(true);
-      onInteraction("presented");
-    }
-  }, [presented, onInteraction]);
+    onInteractionRef.current("presented");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAccept = () => {
-    setAccepted(true);
+  const handleYes = () => {
+    setPhase("detail");
     onInteraction("accepted");
   };
 
-  const handleReject = () => {
+  const handleNo = () => {
     onInteraction("rejected");
   };
 
-  const handleHighlight = () => {
-    onInteraction("highlighted");
-  };
+  if (phase === "prompt") {
+    return (
+      <div className="feedback-item">
+        <div className="feedback-header">
+          <span className="feedback-title">Feedback Available</span>
+        </div>
+        <p className="feedback-message">Do you want to see this feedback?</p>
+        <div className="feedback-actions">
+          <button className="feedback-action-btn" onClick={handleYes}>Yes</button>
+          <button className="feedback-action-btn" onClick={handleNo}>No</button>
+        </div>
+      </div>
+    );
+  }
 
-  const handleDismiss = () => {
-    onInteraction("dismissed");
+  return (
+    <FeedbackDetailCard
+      item={item}
+      onInteraction={onInteraction}
+    />
+  );
+}
+
+interface FeedbackDetailCardProps {
+  item: FeedbackItem;
+  onInteraction: (type: InteractionType) => void;
+}
+
+function FeedbackDetailCard({ item, onInteraction }: FeedbackDetailCardProps) {
+  const handleShowInCode = () => {
+    onInteraction("highlighted");
   };
 
   const handleDone = () => {
     onInteraction("done");
   };
 
-  return (
-    <>
-      {!accepted ? (
-        <div className="feedback-item">
-          <div className="feedback-header">
-            <span className="feedback-title">Feedback Available</span>
-          </div>
-          <p className="feedback-message">Do you want to be presented this feedback?</p>
-          <div className="feedback-actions">
-            <button className="feedback-action-btn" onClick={handleAccept} disabled={accepted}>
-              Yes
-            </button>
-            {item.dismissible && (
-              <button className="feedback-action-btn" onClick={handleReject}>
-                No
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <FeedbackItemCard
-          item={item}
-          onHighlight={handleHighlight}
-          onDismiss={handleDismiss}
-          onDone={handleDone}
-        />
-      )}
-    </>
-  );
-}
-
-interface FeedbackItemCardProps {
-  item: FeedbackItem;
-  onHighlight: () => void;
-  onDismiss: () => void;
-  onDone: () => void;
-}
-
-function FeedbackItemCard({ item, onHighlight, onDismiss, onDone }: FeedbackItemCardProps) {
-  const [highlighted, setHighlighted] = useState(false);
-
-  const handleHighlight = () => {
-    setHighlighted(true);
-    onHighlight();
+  const handleNotUseful = () => {
+    onInteraction("dismissed");
   };
 
   return (
@@ -119,20 +102,13 @@ function FeedbackItemCard({ item, onHighlight, onDismiss, onDone }: FeedbackItem
       </div>
       <p className="feedback-message">{item.message}</p>
       <div className="feedback-actions">
-        {item.code_range && item.actionable && !highlighted ? (
-          <button className="feedback-action-btn" onClick={handleHighlight}>
-            Show in Code
-          </button>
-        ) : (
-          <button className="feedback-action-btn" onClick={onDone}>
-            Done
+        {item.code_range && (
+          <button className="feedback-action-btn" onClick={handleShowInCode}>
+            Show in code
           </button>
         )}
-        {item.dismissible && (
-          <button className="feedback-action-btn" onClick={onDismiss}>
-            Dismiss
-          </button>
-        )}
+        <button className="feedback-action-btn" onClick={handleDone}>Done</button>
+        <button className="feedback-action-btn" onClick={handleNotUseful}>Not useful</button>
       </div>
     </div>
   );

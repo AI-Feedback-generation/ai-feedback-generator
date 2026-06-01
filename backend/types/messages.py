@@ -89,9 +89,6 @@ class SystemStatusMessage:
     status: str
     timestamp: float
 
-    # Current state
-    operation_mode: str = "reactive"
-
     # Statistics
     feedback_generated: int = 0
 

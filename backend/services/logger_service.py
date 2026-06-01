@@ -588,7 +588,7 @@ class LoggerService:
         data_obj = json_safe(entry.data) if entry.data else None
         data_str = json.dumps(data_obj) if data_obj else ""
 
-        line = f"{color}[{timestamp}{delta_str}] [{entry.level}] [{mode}] {entry.event_type}{reset} {data_str}"
+        line = f"{color}[{timestamp}{delta_str}] [{entry.level}] {entry.event_type}{reset} {data_str}"
         
         print(line, flush=True)
 

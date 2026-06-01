@@ -15,7 +15,6 @@ import {
     FeedbackDeliveryPayload,
     SystemStatus,
     FeedbackInteraction,
-    OperationMode,
 } from './types';
 import { isStatusUpdatePayload } from './utils/typeguard';
 import { fetchStatus } from './api';
@@ -84,7 +83,6 @@ function initializeComponents(context: vscode.ExtensionContext): void {
     webviewProvider.setCallbacks({
         onConnect: connectToBackend,
         onDisconnect: disconnectFromBackend,
-        onToggleMode: toggleMode,
         onClearFeedback: clearFeedback,
         onTriggerFeedback: triggerFeedbackSend,
         onFeedbackInteraction: (feedbackId, interactionType) => {
@@ -146,13 +144,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.disconnect',
             disconnectFromBackend,
-        ),
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand(
-            'eyeTrackingDebugger.toggleMode',
-            toggleMode,
         ),
     );
 
@@ -258,27 +249,6 @@ async function disconnectFromBackend(): Promise<void> {
     vscode.window.showInformationMessage(
         'Disconnected from AI Feedback Generator backend',
     );
-}
-
-async function toggleMode(new_mode: OperationMode): Promise<void> {
-    if (!new_mode) {
-        const selectedMode = await vscode.window.showQuickPick(
-            ['reactive', 'proactive'],
-            { placeHolder: 'Select operation mode' },
-        );
-        if (!selectedMode) return;
-        new_mode = selectedMode as OperationMode;
-    }
-
-    try {
-        await fetch(`http://${host}:${port}/mode`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: new_mode }),
-        });
-    } catch (error) {
-        console.error('Failed to toggle mode:', error);
-    }
 }
 
 async function setCooldown(cooldownSeconds: number): Promise<void> {

@@ -61,11 +61,6 @@ export type InteractionType =
   | "dismissed"
   | "done";
 
-export enum OperationMode {
-  REACTIVE = "reactive",
-  PROACTIVE = "proactive",
-}
-
 export interface SystemStatus {
   status:
     | "initializing"
@@ -75,7 +70,6 @@ export interface SystemStatus {
     | "error"
     | "disconnected";
   timestamp: number;
-  operation_mode: OperationMode;
   feedback_generated: number;
   feedback_cooldown_left_s: number;
   llm_model?: string;

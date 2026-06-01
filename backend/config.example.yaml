@@ -16,7 +16,6 @@ feedback_layer:
 
 # Runtime Controller
 controller:
-    operation_mode: reactive # reactive, proactive
     feedback_cooldown_seconds: 30.0 # Minimum seconds between automatic feedback deliveries
     websocket_host: localhost
     websocket_port: 8765

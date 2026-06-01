@@ -272,7 +272,8 @@ class FeedbackLayer:
         # creator
         try:
             resp = await self.generate_feedback(context)
-            self._store_in_cache(cache_key, resp)
+            if resp.items:
+                self._store_in_cache(cache_key, resp)
             fut.set_result(resp)
             return resp
         except Exception as e:
@@ -527,7 +528,7 @@ class FeedbackLayer:
             "- Each code line is prefixed like:     L000123| <code>\n"
             "- VS Code positions are 0-based. Therefore, convert the prefix number L to code_range line by: line = L - 1.\n"
             "- Set code_range.start.line and code_range.end.line using that conversion.\n"
-            "- If you are unsure about exact column positions, set start.character = 0 and end.character = 0.\n"
+            "- If you are unsure about exact column positions, set start.character = 0 and end.character = 9999 (the renderer clamps it to the actual line length).\n"
             "- The cursor line is marked with >>> L000042| <code>\n"
             "- Example: '>>> L000042| def foo():' => code_range.start.line = 41 (this is where the cursor is).\n\n"
 

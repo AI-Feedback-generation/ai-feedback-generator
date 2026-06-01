@@ -43,10 +43,6 @@
                 "title": "AI Feedback: Disconnect from Backend"
             },
             {
-                "command": "eyeTrackingDebugger.toggleMode",
-                "title": "AI Feedback: Toggle Reactive/Proactive Mode"
-            },
-            {
                 "command": "eyeTrackingDebugger.showStatus",
                 "title": "AI Feedback: Show Status"
             },

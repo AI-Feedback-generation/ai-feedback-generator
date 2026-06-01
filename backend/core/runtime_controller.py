@@ -12,7 +12,7 @@ import asyncio
 from backend.layers.feedback_layer import FeedbackLayer
 from backend.services.logger_service import get_logger
 from backend.types.code_context import CodeContext
-from backend.types.config import OperationMode, SystemConfig
+from backend.types.config import SystemConfig
 from backend.types.feedback import FeedbackInteraction, FeedbackResponse
 from backend.types.messages import SystemStatus, SystemStatusMessage
 from backend.types.domain_events import DomainEvent, DomainEventType
@@ -24,7 +24,6 @@ class RuntimeController:
     def __init__(self, config: Optional[SystemConfig] = None):
         self._config = config or SystemConfig()
         self._logger = get_logger()
-        self._logger.set_experiment_mode(self._config.controller.operation_mode.value)
 
         self._feedback_layer = FeedbackLayer(
             self._config.feedback_layer,
@@ -33,7 +32,6 @@ class RuntimeController:
 
         # State
         self._status: SystemStatus = SystemStatus.INITIALIZING
-        self._operation_mode: OperationMode = self._config.controller.operation_mode
         self._last_feedback_time: float = 0.0
         self._current_code_context: Optional[CodeContext] = None
 
@@ -55,7 +53,7 @@ class RuntimeController:
 
         self._logger.system(
             "runtime_controller_initialized",
-            {"operation_mode": self._operation_mode.name},
+            {},
             level="DEBUG",
         )
 
@@ -89,34 +87,10 @@ class RuntimeController:
 
         self._status = SystemStatus.DISCONNECTED
 
-    def set_operation_mode(self, mode: OperationMode) -> None:
-        old_mode = self._operation_mode
-        self._operation_mode = mode
-        self._logger.set_experiment_mode(mode.value)
-
-        if self._config is not None and getattr(self._config, "controller", None) is not None:
-            self._config.controller.operation_mode = mode
-
-        self._logger.system(
-            "operation_mode_changed",
-            {"new_mode": mode.name, "old_mode": old_mode.name},
-            level="INFO",
-        )
-        self.reset_feedback_cooldown()
-
-        self._publish(DomainEvent(
-            event_type=DomainEventType.SYSTEM_STATUS_UPDATED,
-            payload=self.get_system_status(),
-        ))
-
-    def get_operation_mode(self) -> OperationMode:
-        return self._operation_mode
-
     def get_system_status(self) -> SystemStatusMessage:
         return SystemStatusMessage(
             status=self._status.value,
             timestamp=datetime.now(timezone.utc).timestamp(),
-            operation_mode=self._operation_mode.value,
             feedback_generated=self._stats["feedback_generated"],
             llm_model=self._feedback_layer.get_llm_client().get_model_name() if self._feedback_layer.get_llm_client() else None,
             feedback_cooldown_left_s=int(self.get_feedback_cooldown_remaining()),
@@ -161,17 +135,20 @@ class RuntimeController:
                 "cooldown_remaining": self.get_feedback_cooldown_remaining(),
             },
         )
-        if self._pending_feedback is not None:
+        # Only re-deliver pending feedback if it hasn't been sent already and has items
+        if (
+            self._pending_feedback is not None
+            and self._pending_feedback.items
+            and self._pending_feedback_version > self._last_delivered_version
+        ):
             return self._try_deliver_feedback(force=True)
 
-        # No pending feedback — generate fresh from current context
+        # No undelivered pending feedback — generate fresh from current context
         if self._current_code_context is None:
             return False
 
-        self._context_version += 1
-        version = self._context_version
         asyncio.create_task(
-            self._generate_feedback_for_version(version, self._current_code_context, force_deliver=True)
+            self._generate_feedback_for_version(self._context_version, self._current_code_context, force_deliver=True)
         )
         return True
 
@@ -203,8 +180,23 @@ class RuntimeController:
 
         if interaction_type in ("dismissed", "done"):
             self._remove_feedback_from_pending(interaction.feedback_id)
+            self._trigger_new_feedback_after_interaction()
 
         return True
+
+    def _trigger_new_feedback_after_interaction(self) -> None:
+        if self._current_code_context is None or self._status != SystemStatus.RUNNING:
+            return
+
+        if self._feedback_generation_task is not None and not self._feedback_generation_task.done():
+            self._feedback_generation_task.cancel()
+
+        self._feedback_generation_task = asyncio.create_task(
+            self._generate_feedback_for_version(
+                self._context_version, self._current_code_context, force_deliver=True
+            )
+        )
+        self._logger.system("feedback_generation_triggered_by_interaction", {}, level="DEBUG")
 
     def _remove_feedback_from_pending(self, feedback_id: str) -> None:
         if self._pending_feedback is None:
@@ -247,10 +239,15 @@ class RuntimeController:
                     level="ERROR",
                 )
 
+    # Only start generation when delivery is imminent to avoid wasted LLM calls.
+    _GENERATION_LEAD_TIME_S = 10.0
+
     def _can_start_feedback_generation(self) -> bool:
         if self._status != SystemStatus.RUNNING:
             return False
         if self._current_code_context is None:
+            return False
+        if self.get_feedback_cooldown_remaining() > self._GENERATION_LEAD_TIME_S:
             return False
         return True
 
@@ -331,8 +328,10 @@ class RuntimeController:
             for item in feedback.items:
                 self._logger.feedback("feedback_item_generated", item)
 
-            # Stale check: a newer context arrived during generation
-            if version != self._context_version:
+            # Stale check: a newer context arrived during generation.
+            # Skip for manual (force_deliver) triggers — the user asked for feedback
+            # and should get it even if context changed during the LLM call.
+            if not force_deliver and version != self._context_version:
                 self._logger.system(
                     "feedback_generation_stale",
                     {
@@ -343,11 +342,10 @@ class RuntimeController:
                 )
                 return
 
-            if feedback is not None:
+            if feedback is not None and feedback.items:
                 self._pending_feedback = feedback
                 self._pending_feedback_version = version
                 self._stats["feedback_generated"] = self._stats.get("feedback_generated", 0) + 1
-                # Deliver immediately after generation if cooldown allows (or forced)
                 self._try_deliver_feedback(force=force_deliver)
             else:
                 self._logger.system(

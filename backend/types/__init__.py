@@ -17,7 +17,6 @@ from .config import (
     FeedbackLayerConfig,
     ControllerConfig,
     SystemConfig,
-    OperationMode,
 )
 from .messages import (
     MessageType,
@@ -50,7 +49,6 @@ __all__ = [
     "FeedbackLayerConfig",
     "ControllerConfig",
     "SystemConfig",
-    "OperationMode",
     # Message types
     "MessageType",
     "SystemStatus",

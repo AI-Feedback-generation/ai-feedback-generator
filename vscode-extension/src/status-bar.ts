@@ -2,7 +2,7 @@
  * Status bar manager - shows connection and system status.
  */
 import * as vscode from 'vscode';
-import { SystemStatusMessage, SystemStatus, OperationMode } from './types';
+import { SystemStatusMessage, SystemStatus } from './types';
 
 export class StatusBarManager {
     private statusBarItem: vscode.StatusBarItem;
@@ -35,17 +35,6 @@ export class StatusBarManager {
         this.updateDisplay();
 
         if (this.statusPanel && this.currentStatus) {
-            this.postStatusToPanel(this.currentStatus);
-        }
-    }
-
-    setMode(mode: OperationMode): void {
-        if (!this.currentStatus) return;
-
-        this.currentStatus.operation_mode = mode;
-        this.updateDisplay();
-
-        if (this.statusPanel) {
             this.postStatusToPanel(this.currentStatus);
         }
     }
@@ -115,11 +104,7 @@ export class StatusBarManager {
         }
 
         const statusIcon = this.getStatusIcon(this.currentStatus.status);
-        const modeText =
-            this.currentStatus.operation_mode.charAt(0).toUpperCase() +
-            this.currentStatus.operation_mode.slice(1).toLowerCase();
-
-        this.statusBarItem.text = `AI Feedback: ${statusIcon} | Connected | ${modeText}`;
+        this.statusBarItem.text = `AI Feedback: ${statusIcon} | Connected`;
         this.statusBarItem.color = this.getStatusColor(this.currentStatus.status);
     }
 
@@ -249,9 +234,6 @@ export class StatusBarManager {
                     <div class="label">Time</div>
                     <div class="value" id="time_local">–</div>
 
-                    <div class="label">Mode</div>
-                    <div class="value" id="mode">–</div>
-
                     <div class="label">LLM Model</div>
                     <div class="value" id="llm_model">–</div>
 
@@ -308,7 +290,6 @@ export class StatusBarManager {
 
                     pillForStatus(s.status);
                     setText("time_local", s.time_local);
-                    setText("mode", s.operation_mode);
                     setText("llm_model", s.llm_model);
                     setText("feedback_generated", s.feedback_generated);
                     setText("feedback_cooldown_left_s", s.feedback_cooldown_left_s !== undefined ? s.feedback_cooldown_left_s : "–");

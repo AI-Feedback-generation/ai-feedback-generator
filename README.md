@@ -1,122 +1,79 @@
-# Eye Tracking Debugger
+# AI Feedback Generator
 
-A system for providing eye-tracking based debugging assistance in VS Code.
-
-## Project Structure
-
-TODO
+A VS Code extension that uses real-time eye tracking to estimate developer cognitive load and deliver context-aware AI feedback.
 
 ## Requirements
 
-### Backend
-
-- Python 3.11 (required for tobii-research SDK)
-- Tobii Eye Tracker
-
-# Installations
-
-libomp (for xgboost on macOS):
-
-```bash
-brew install libomp
-```
-
-### VS Code Extension
-
+- Python 3.11+
 - Node.js 18+
 - VS Code 1.85+
+- An OpenAI API key
 
-## Training Data
+## Setup & Running
 
-The forecasting model in this project was trained using the EMIP eye-tracking dataset available on OSF: https://osf.io/53kts/overview.
-
-## Setup
-
-### Backend
+### 1. Backend
 
 ```bash
-# Activate the virtual environment
+# Create and activate a virtual environment
+python3.11 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies (from repo root)
+# Install dependencies
 pip install -r backend/requirements.txt
 
-# Run the backend (from root)
+# Copy and edit the config
+cp backend/config.example.yaml backend/config.yaml
+
+# Start the backend
 python -m backend.main --config backend/config.yaml
-
 ```
 
-The backend will start a WebSocket server on port 8765 and a REST API server on port 8080 by default. Adjust ports in `config.yaml` as needed.
+The backend starts a WebSocket server (default port 8765) and a REST API (default port 8080).
 
-### Training (XGBoost forecaster)
-
-```bash
-
-# Train model (uses participant-level train/val/test split)
-python -m backend.training.train_xgboost --config backend/config.yaml
-```
-
-The active proactive model is loaded from `backend/models/trained/latest.json` with metadata in `backend/models/trained/latest_metadata.json`.
-
-### VS Code Extension
+### 2. VS Code Extension
 
 ```bash
 cd vscode-extension
-
-# Install dependencies
-npm install
-
-# Compile
-npm run compile
-
-# For development, use watch mode
-npm run watch
+npm run install:all   # installs extension + webview dependencies
+npm run build         # production build
 ```
 
-To test the extension:
+Then open the `vscode-extension` folder in VS Code and press **F5** to launch the Extension Development Host.
 
-1. Open the `vscode-extension` folder in VS Code
-2. Press `F5` to launch the Extension Development Host
-3. Use the command palette to run Eye Tracking commands
+### 3. Connect
 
-### Usage per now (30th of January 2026)
-
-1. Start the backend server
-2. Launch the VS Code extension
-3. Connect the extension to the backend via the command palette ("Eye Tracking: Connect to Backend")
-4. Connect the eye tracker via the command palette ("Eye Tracking: Connect Eye Tracker")
-5. Open a code file in the editor
-6. Trigger feedback generation ("Eye Tracking: Trigger Feedback Send")
-
-## Architecture
-
-### Data Flow
-
-1. **Eye Tracker → Signal Processing**: Raw gaze data (120 Hz) is processed into window-based features (2-10 Hz)
-
-2. **Reactive mode**: Signal Processing → Reactive Tool (direct scoring)
-
-3. **Proactive mode**: Signal Processing → Forecasting Tool (predict +30s) → Reactive Tool (baseline-aware scoring)
-
-4. **Reactive Tool → Controller**: User state scores trigger feedback decisions
-
-5. **Controller → Feedback Layer → VS Code**: Structured feedback is generated and rendered in the editor
-
-### Operation Modes
-
-- **Reactive**: Responds to current user state in real-time
-- **Proactive**: Uses forecasting to predict future states and provide preemptive assistance
+1. Open the command palette and run **"Eye Tracking: Connect to Backend"**
+2. Run **"Eye Tracking: Connect Eye Tracker"**
+3. Open a code file — feedback will appear automatically based on your eye-tracking state
 
 ## Configuration
 
-Copy `backend/config.example.yaml` to `backend/config.yaml` and customize:
+Copy `backend/config.example.yaml` to `backend/config.yaml`. All options:
 
-- Signal processing parameters (window size, metrics, output frequency)
-- Forecasting settings (prediction horizon, model path)
-- Reactive tool thresholds
-- Feedback layer LLM settings
-- Server ports and logging
+### `feedback_layer` — LLM settings
 
-## Declaration of AI:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `llm_provider` | `openai` | LLM provider: `openai` or `development` (no LLM calls, for testing) |
+| `llm_model` | `gpt-4o-mini` | Model name, e.g. `gpt-4o`, `gpt-4o-mini` |
+| `llm_api_key` | `null` | API key — or set via `OPENAI_API_KEY` env var |
+| `max_feedback_items` | `1` | Number of feedback items generated per trigger |
+| `max_message_length` | `200` | Maximum character length per feedback message |
+| `enable_cache` | `true` | Cache LLM responses to reduce API calls |
+| `cache_ttl_seconds` | `300.0` | How long cached responses are reused |
+| `max_generations_per_minute` | `10` | Rate limit for LLM calls |
+| `max_tokens` | `500` | Max tokens per LLM response |
+| `temperature` | `0.3` | LLM sampling temperature (0 = deterministic, 1 = creative) |
 
-This project has been developed with the assistance of AI tools to enhance code quality and documentation. All code and content have been reviewed and validated by the project maintainers to ensure accuracy and integrity.
+### `controller` — Runtime settings
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `feedback_cooldown_seconds` | `30.0` | Minimum seconds between automatic feedback deliveries |
+| `websocket_host` | `localhost` | WebSocket server host |
+| `websocket_port` | `8765` | WebSocket server port |
+| `api_host` | `localhost` | REST API host |
+| `api_port` | `8080` | REST API port |
+| `log_level` | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `log_to_file` | `true` | Whether to write logs to a file |
+| `log_file_path` | `logs/ai_feedback_generator.log` | Log file location |

@@ -94,12 +94,6 @@ def _dataclass_to_dict(obj: Any) -> Any:
 #------------------------------------------------------------------
 
 
-class OperationMode(Enum):
-    """System operation modes."""
-    REACTIVE = "reactive"
-    PROACTIVE = "proactive"
-
-
 @dataclass
 class FeedbackLayerConfig:
     """Configuration for Feedback Layer."""
@@ -127,9 +121,6 @@ class FeedbackLayerConfig:
 @dataclass
 class ControllerConfig:
     """Configuration for Runtime Controller."""
-    # Mode
-    operation_mode: OperationMode = OperationMode.REACTIVE
-
     # Feedback timing
     feedback_cooldown_seconds: float = 60.0
 

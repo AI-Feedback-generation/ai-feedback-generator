@@ -3,7 +3,7 @@ import { FeedbackList } from "./components/FeedbackList";
 import { StatusPanel } from "./components/StatusPanel";
 import { Controls } from "./components/Controls";
 import { vscode } from "./utilities/vscode";
-import { type FeedbackItem, type SystemStatus, type InteractionType, OperationMode } from "./types";
+import { type FeedbackItem, type SystemStatus, type InteractionType } from "./types";
 
 interface ConnectionStatusMessage {
   type: "connectionStatus";
@@ -87,14 +87,6 @@ export function App() {
     vscode.postMessage({ type: "disconnect" });
   };
 
-  const handleSetMode = (newMode: OperationMode) => {
-    if (!status || status.operation_mode === newMode) return;
-    vscode.postMessage({
-      type: "toggleMode",
-      payload: { new_mode: newMode }
-    });
-  };
-
   const handleClearFeedback = () => {
     vscode.postMessage({ type: "clearFeedback" });
   };
@@ -138,10 +130,7 @@ export function App() {
             isConnected={isConnected}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
-            currentMode={status?.operation_mode ?? null}
-            onSetMode={handleSetMode}
             onClearFeedback={handleClearFeedback}
-            onTriggerFeedback={handleTriggerFeedback}
           />
         </div>
         {status &&
@@ -154,6 +143,9 @@ export function App() {
       <div className="section">
         <div className="section-title">Feedback</div>
         <div className="cooldown-buttons">
+          <button className="btn small" onClick={handleTriggerFeedback} disabled={!isConnected}>
+            Trigger Feedback
+          </button>
           {status?.feedback_cooldown_left_s && status?.feedback_cooldown_left_s > 80000 ? (
             <button className="btn small secondary" onClick={() => handleSetCooldown(15)} disabled={!isConnected}>
               Enable Feedback

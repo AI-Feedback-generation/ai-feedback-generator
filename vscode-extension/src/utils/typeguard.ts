@@ -6,7 +6,6 @@ export function isStatusUpdatePayload(x: unknown): x is SystemStatusMessage {
 
     if (typeof o.status !== "string") return false;
     if (typeof o.timestamp !== "number") return false;
-    if (typeof o.operation_mode !== "string") return false;
     if (typeof o.feedback_generated !== "number") return false;
 
     if ("llm_model" in o && o.llm_model !== undefined && o.llm_model !== null && typeof o.llm_model !== "string") return false;

@@ -128,15 +128,9 @@ export interface FeedbackDeliveryPayload {
     triggered_by: string;
 }
 
-export enum OperationMode {
-    REACTIVE = 'reactive',
-    PROACTIVE = 'proactive',
-}
-
 export interface SystemStatusMessage {
     status: SystemStatus;
     timestamp: number;
-    operation_mode: OperationMode;
     feedback_generated: number;
     feedback_cooldown_left_s: number;
     llm_model?: string;

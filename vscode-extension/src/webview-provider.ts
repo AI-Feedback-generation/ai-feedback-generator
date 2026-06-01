@@ -6,7 +6,6 @@ import {
     FeedbackItem,
     SystemStatusMessage,
     InteractionType,
-    OperationMode,
 } from './types';
 
 // Set to true during development to load from Vite dev server
@@ -22,7 +21,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
     // Callbacks for handling webview messages
     private _onConnect?: () => void;
     private _onDisconnect?: () => void;
-    private _onToggleMode?: (new_mode: OperationMode) => Promise<void>;
     private _onClearFeedback?: () => void;
     private _onTriggerFeedback?: () => void;
     private _onFeedbackInteraction?: (
@@ -38,7 +36,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
     public setCallbacks(callbacks: {
         onConnect?: () => void;
         onDisconnect?: () => void;
-        onToggleMode?: (new_mode: OperationMode) => Promise<void>;
         onClearFeedback?: () => void;
         onTriggerFeedback?: () => void;
         onFeedbackInteraction?: (
@@ -49,7 +46,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
     }): void {
         this._onConnect = callbacks.onConnect;
         this._onDisconnect = callbacks.onDisconnect;
-        this._onToggleMode = callbacks.onToggleMode;
         this._onClearFeedback = callbacks.onClearFeedback;
         this._onTriggerFeedback = callbacks.onTriggerFeedback;
         this._onFeedbackInteraction = callbacks.onFeedbackInteraction;
@@ -131,10 +127,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
                 break;
             case 'disconnect':
                 this._onDisconnect?.();
-                break;
-            case 'toggleMode':
-                const modePayload = message.payload as { new_mode: OperationMode };
-                this._onToggleMode?.(modePayload.new_mode);
                 break;
             case 'clearFeedback':
                 this._onClearFeedback?.();

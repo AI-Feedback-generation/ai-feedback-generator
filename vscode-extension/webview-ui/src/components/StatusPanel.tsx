@@ -27,9 +27,6 @@ export function StatusPanel({ status }: StatusPanelProps) {
                     <span className="label">Status</span>
                     <span className="value">{status.status}</span>
 
-                    <span className="label">Mode</span>
-                    <span className="value">{status.operation_mode}</span>
-
                     <span className="label">Feedback Generated</span>
                     <span className="value">{status.feedback_generated}</span>
 

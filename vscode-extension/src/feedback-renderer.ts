@@ -190,7 +190,13 @@ export class FeedbackRenderer {
         const endLineLength = document.lineAt(endLine).text.length;
 
         const startChar = clamp(range.start.character, 0, startLineLength);
-        const endChar = clamp(range.end.character, 0, endLineLength);
+        let endChar = clamp(range.end.character, 0, endLineLength);
+
+        // Zero-width range on the same line — expand to end of line so the
+        // diagnostic squiggle covers meaningful content instead of one char.
+        if (endLine === startLine && endChar <= startChar) {
+            endChar = endLineLength;
+        }
 
         return new vscode.Range(startLine, startChar, endLine, endChar);
     }

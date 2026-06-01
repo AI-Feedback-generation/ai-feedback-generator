@@ -1,7 +1,5 @@
 /**
- * WebviewViewProvider for the Eye Tracking Debugger feedback panel.
- *
- * This provider manages the webview that displays the React-based UI.
+ * WebviewViewProvider for the AI Feedback Generator panel.
  */
 import * as vscode from 'vscode';
 import {
@@ -27,43 +25,26 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
     private _onToggleMode?: (new_mode: OperationMode) => Promise<void>;
     private _onClearFeedback?: () => void;
     private _onTriggerFeedback?: () => void;
-    private _onConnectEyeTracker?: () => void;
-    private _onDisconnectEyeTracker?: () => void;
     private _onFeedbackInteraction?: (
         feedbackId: string,
         interactionType: InteractionType,
     ) => void;
-    private _onStartExperiment?: (
-        experimentId: string,
-        participantId: string,
-    ) => void;
-    private _onEndExperiment?: () => void;
     private _onSetCooldown?: (cooldownSeconds: number) => void;
 
     constructor(extensionUri: vscode.Uri) {
         this._extensionUri = extensionUri;
     }
 
-    /**
-     * Set up callbacks for webview actions
-     */
     public setCallbacks(callbacks: {
         onConnect?: () => void;
         onDisconnect?: () => void;
         onToggleMode?: (new_mode: OperationMode) => Promise<void>;
         onClearFeedback?: () => void;
         onTriggerFeedback?: () => void;
-        onConnectEyeTracker?: () => void;
-        onDisconnectEyeTracker?: () => void;
         onFeedbackInteraction?: (
             feedbackId: string,
             interactionType: InteractionType,
         ) => void;
-        onStartExperiment?: (
-            experimentId: string,
-            participantId: string,
-        ) => void;
-        onEndExperiment?: () => void;
         onSetCooldown?: (cooldownSeconds: number) => void;
     }): void {
         this._onConnect = callbacks.onConnect;
@@ -71,17 +52,10 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         this._onToggleMode = callbacks.onToggleMode;
         this._onClearFeedback = callbacks.onClearFeedback;
         this._onTriggerFeedback = callbacks.onTriggerFeedback;
-        this._onConnectEyeTracker = callbacks.onConnectEyeTracker;
-        this._onDisconnectEyeTracker = callbacks.onDisconnectEyeTracker;
         this._onFeedbackInteraction = callbacks.onFeedbackInteraction;
-        this._onStartExperiment = callbacks.onStartExperiment;
-        this._onEndExperiment = callbacks.onEndExperiment;
         this._onSetCooldown = callbacks.onSetCooldown;
     }
 
-    /**
-     * Called when the view is resolved (becomes visible).
-     */
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
         _context: vscode.WebviewViewResolveContext,
@@ -98,23 +72,17 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-        // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage((message) => {
             this._handleWebviewMessage(message);
         });
 
-        // When view becomes visible, sync state
         webviewView.onDidChangeVisibility(() => {
             if (webviewView.visible) {
-                // Webview became visible - extension can send current state
                 console.log('Webview became visible');
             }
         });
     }
 
-    /**
-     * Update the connection status in the webview
-     */
     public updateConnectionStatus(connected: boolean): void {
         this._postMessage({
             type: 'connectionStatus',
@@ -122,9 +90,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    /**
-     * Update the system status in the webview
-     */
     public updateStatus(status: SystemStatusMessage): void {
         this._postMessage({
             type: 'statusUpdate',
@@ -132,9 +97,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    /**
-     * Update feedback items in the webview
-     */
     public updateFeedback(items: FeedbackItem[]): void {
         this._postMessage({
             type: 'feedbackUpdate',
@@ -142,9 +104,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    /**
-     * Clear all feedback in the webview
-     */
     public clearFeedback(): void {
         this._postMessage({
             type: 'clearFeedback',
@@ -152,9 +111,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    /**
-     * Remove a single feedback item in the webview by ID.
-     */
     public removeFeedback(feedbackId: string): void {
         this._postMessage({
             type: 'removeFeedback',
@@ -162,16 +118,12 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    /**
-     * Handle messages from the webview
-     */
     private _handleWebviewMessage(message: {
         type: string;
         payload?: unknown;
     }): void {
         switch (message.type) {
             case 'ready':
-                // Webview is ready - send initial state
                 console.log('Webview ready, sending initial state');
                 break;
             case 'connect':
@@ -181,9 +133,7 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
                 this._onDisconnect?.();
                 break;
             case 'toggleMode':
-                const modePayload = message.payload as {
-                    new_mode: OperationMode;
-                };
+                const modePayload = message.payload as { new_mode: OperationMode };
                 this._onToggleMode?.(modePayload.new_mode);
                 break;
             case 'clearFeedback':
@@ -191,12 +141,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
                 break;
             case 'triggerFeedback':
                 this._onTriggerFeedback?.();
-                break;
-            case 'connectEyeTracker':
-                this._onConnectEyeTracker?.();
-                break;
-            case 'disconnectEyeTracker':
-                this._onDisconnectEyeTracker?.();
                 break;
             case 'feedbackInteraction':
                 const payload = message.payload as {
@@ -208,23 +152,8 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
                     payload.interactionType,
                 );
                 break;
-            case 'startExperiment':
-                const startPayload = message.payload as {
-                    experimentId: string;
-                    participantId: string;
-                };
-                this._onStartExperiment?.(
-                    startPayload.experimentId,
-                    startPayload.participantId,
-                );
-                break;
-            case 'endExperiment':
-                this._onEndExperiment?.();
-                break;
             case 'setCooldown':
-                const cooldownPayload = message.payload as {
-                    cooldownSeconds: number;
-                };
+                const cooldownPayload = message.payload as { cooldownSeconds: number };
                 this._onSetCooldown?.(cooldownPayload.cooldownSeconds);
                 break;
             default:
@@ -232,30 +161,22 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    /**
-     * Post a message to the webview
-     */
     private _postMessage(message: { type: string; payload: unknown }): void {
         if (this._view) {
             this._view.webview.postMessage(message);
         }
     }
 
-    /**
-     * Generate the HTML content for the webview
-     */
     private _getHtmlForWebview(webview: vscode.Webview): string {
-        // Use a nonce for security
         const nonce = this._getNonce();
 
-        // In dev mode, load from Vite dev server for hot reload
         if (DEV_MODE) {
             return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eye Tracking Feedback</title>
+    <title>AI Feedback</title>
 </head>
 <body>
     <div id="root"></div>
@@ -271,7 +192,6 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
 </html>`;
         }
 
-        // Production mode: load from built assets
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(
                 this._extensionUri,
@@ -298,7 +218,7 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <link href="${styleUri}" rel="stylesheet">
-    <title>Eye Tracking Feedback</title>
+    <title>AI Feedback</title>
 </head>
 <body>
     <div id="root"></div>
@@ -307,17 +227,12 @@ export class FeedbackViewProvider implements vscode.WebviewViewProvider {
 </html>`;
     }
 
-    /**
-     * Generate a nonce for CSP
-     */
     private _getNonce(): string {
         let text = '';
         const possible =
             'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         for (let i = 0; i < 32; i++) {
-            text += possible.charAt(
-                Math.floor(Math.random() * possible.length),
-            );
+            text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
     }

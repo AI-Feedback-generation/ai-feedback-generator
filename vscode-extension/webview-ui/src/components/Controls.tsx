@@ -3,28 +3,22 @@ import { OperationMode } from "../types";
 
 interface ControlsProps {
   isConnected: boolean;
-  eyeTrackerConnected: boolean;
   currentMode: OperationMode | null;
   onConnect: () => void;
   onDisconnect: () => void;
   onSetMode: (mode: OperationMode) => void;
   onClearFeedback: () => void;
   onTriggerFeedback: () => void;
-  onConnectEyeTracker: () => void;
-  onDisconnectEyeTracker: () => void;
 }
 
 export function Controls({
   isConnected,
-  eyeTrackerConnected,
   currentMode,
   onConnect,
   onDisconnect,
   onSetMode,
   onClearFeedback,
   onTriggerFeedback,
-  onConnectEyeTracker,
-  onDisconnectEyeTracker,
 }: ControlsProps) {
   const [toggled, setToggled] = useState(false);
 
@@ -37,7 +31,9 @@ export function Controls({
         }}
       >
         <span>Controls</span>
-        <button className="btn small secondary toggle-btn" onClick={() => setToggled(!toggled)}>{toggled ? "Hide" : "Show"} </button>
+        <button className="btn small secondary toggle-btn" onClick={() => setToggled(!toggled)}>
+          {toggled ? "Hide" : "Show"}
+        </button>
       </div>
       {toggled && (
         <div className="controls">
@@ -51,23 +47,12 @@ export function Controls({
             </button>
           )}
 
-          {!eyeTrackerConnected ? (
-            <button className="btn" onClick={onConnectEyeTracker} disabled={!isConnected}>
-              Connect Eye Tracker
-            </button>
-          ) : (
-            <button className="btn secondary" onClick={onDisconnectEyeTracker}>
-              Disconnect Eye Tracker
-            </button>
-          )}
-
-
           <button className="btn secondary" onClick={onTriggerFeedback} disabled={!isConnected}>
             Trigger Feedback
           </button>
 
           <div className="mode-buttons">
-            {[OperationMode.CONTROL, OperationMode.PROACTIVE, OperationMode.REACTIVE, OperationMode.QUESTIONNAIRE].map((mode) => {
+            {[OperationMode.REACTIVE, OperationMode.PROACTIVE].map((mode) => {
               const isActive = currentMode === mode;
               const label = mode.charAt(0).toUpperCase() + mode.slice(1);
               return (
@@ -83,7 +68,6 @@ export function Controls({
               );
             })}
           </div>
-
 
           <button className="btn secondary" onClick={onClearFeedback}>
             Clear Feedback

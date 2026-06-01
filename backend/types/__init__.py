@@ -1,16 +1,4 @@
-# Type definitions for the eye-tracking debugger backend
-from .eye_tracking import (
-    RawGazeData,
-    GazeSample,
-    WindowFeatures,
-    PredictedFeatures,
-)
-from .user_state import (
-    UserStateScore,
-    UserStateEstimate,
-    MetricBaseline,
-    ParticipantBaseline,
-)
+# Type definitions for the ai-feedback-generator backend
 from .code_context import (
     CodePosition,
     CodeRange,
@@ -26,13 +14,10 @@ from .feedback import (
     FeedbackPriority,
 )
 from .config import (
-    SignalProcessingConfig,
-    ForecastingConfig,
-    ReactiveToolConfig,
+    FeedbackLayerConfig,
     ControllerConfig,
     SystemConfig,
     OperationMode,
-    TrainingConfig,
 )
 from .messages import (
     MessageType,
@@ -49,16 +34,6 @@ from .domain_events import (
 )
 
 __all__ = [
-    # Eye tracking types
-    "RawGazeData",
-    "GazeSample",
-    "WindowFeatures",
-    "PredictedFeatures",
-    # User state types
-    "UserStateScore",
-    "UserStateEstimate",
-    "MetricBaseline",
-    "ParticipantBaseline",
     # Code context types
     "CodePosition",
     "CodeRange",
@@ -72,13 +47,10 @@ __all__ = [
     "FeedbackType",
     "FeedbackPriority",
     # Config types
-    "SignalProcessingConfig",
-    "ForecastingConfig",
-    "ReactiveToolConfig",
+    "FeedbackLayerConfig",
     "ControllerConfig",
     "SystemConfig",
     "OperationMode",
-    "TrainingConfig",
     # Message types
     "MessageType",
     "SystemStatus",

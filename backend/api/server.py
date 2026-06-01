@@ -1,8 +1,8 @@
 """
 Combined Server
 
-Main server that runs both WebSocket and REST API servers together.
-Entry point for the backend application.
+Runs WebSocket and REST API servers together. Wires the RuntimeController
+to network interfaces for bidirectional communication with VS Code.
 """
 import datetime
 from typing import Optional, Dict, Any
@@ -23,20 +23,11 @@ from backend.types.feedback import FeedbackInteraction
 
 
 class Server:
-    """
-    Main server combining WebSocket and REST API.
-    """
-    
+    """Main server combining WebSocket and REST API."""
+
     def __init__(self, config: Optional[SystemConfig] = None):
-        """
-        Initialize the combined server.
-        
-        Args:
-            config: System configuration.
-        """
         self._config = config or SystemConfig()
-        
-        # Initialize components
+
         self._controller = RuntimeController(self._config)
         self._websocket_server = WebSocketServer(
             host=self._config.controller.websocket_host,
@@ -46,14 +37,11 @@ class Server:
             host=self._config.controller.api_host,
             port=self._config.controller.api_port,
         )
-        
+
         self._is_running: bool = False
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._logger = get_logger()
 
-
-
-    
     async def start(self) -> None:
         """Start all server components."""
         self._logger.system(
@@ -63,40 +51,31 @@ class Server:
                 "api_url": f"http://{self._config.controller.api_host}:{self._config.controller.api_port}",
             },
         )
-        
-        # Wire up the components
-        self._wire_components()
 
-        # Start WebSocket and REST API servers
+        self._wire_components()
         await self._websocket_server.start()
         await self._rest_api.start()
-        
-        # Initialize the controller
         await self._controller.initialize()
-        
+
         self._is_running = True
         self._logger.system("servers_started", {})
-    
+
     async def stop(self) -> None:
         """Stop all server components gracefully."""
         self._logger.system("servers_stopping", {})
         self._is_running = False
-        
+
         await self._controller.shutdown()
         await self._websocket_server.stop()
         await self._rest_api.stop()
-        
+
         self._logger.system("servers_stopped", {})
-    
+
     def run(self) -> None:
-        """
-        Run the server (blocking).
-        
-        This is the main entry point for running the server.
-        """
+        """Run the server (blocking)."""
         self._loop = asyncio.get_event_loop()
         self._setup_signal_handlers()
-        
+
         try:
             self._loop.run_until_complete(self.start())
             self._loop.run_forever()
@@ -105,69 +84,41 @@ class Server:
         finally:
             self._loop.run_until_complete(self.stop())
             self._loop.close()
-    
+
     async def run_async(self) -> None:
         """Run the server asynchronously."""
         await self.start()
-    
+
     def is_running(self) -> bool:
-        """
-        Check if server is running.
-        
-        Returns:
-            True if server is running.
-        """
         return self._is_running
-    
+
     def get_controller(self) -> RuntimeController:
-        """
-        Get the runtime controller instance.
-        
-        Returns:
-            The runtime controller.
-        """
         return self._controller
-    
+
     def get_websocket_server(self) -> WebSocketServer:
-        """
-        Get the WebSocket server instance.
-        
-        Returns:
-            The WebSocket server.
-        """
         return self._websocket_server
-    
+
     def get_rest_api(self) -> RestAPI:
-        """
-        Get the REST API instance.
-        
-        Returns:
-            The REST API server.
-        """
         return self._rest_api
-    
+
     # --- Internal Methods ---
-    
+
     def _setup_signal_handlers(self) -> None:
-        """Set up signal handlers for graceful shutdown."""
         if self._loop is None:
             return
-        
+
         for sig in (signal.SIGINT, signal.SIGTERM):
             self._loop.add_signal_handler(
                 sig,
                 lambda s=sig: asyncio.create_task(self._shutdown_handler(s))
             )
-        
-    
+
     def _wire_components(self) -> None:
-        # Controller -> WebSocket (outbound) via domain events
+        # Controller → WebSocket (outbound) via domain events
         def handle_domain_event(event: DomainEvent) -> None:
             event_to_message_type = {
                 DomainEventType.FEEDBACK_READY: MessageType.FEEDBACK_DELIVERY,
                 DomainEventType.SYSTEM_STATUS_UPDATED: MessageType.STATUS_UPDATE,
-                DomainEventType.EXPERIMENT_STARTED: MessageType.STATUS_UPDATE,
-                DomainEventType.EXPERIMENT_ENDED: MessageType.STATUS_UPDATE,
                 DomainEventType.CODE_CONTEXT_NEEDED: MessageType.CONTEXT_REQUEST,
             }
 
@@ -194,21 +145,14 @@ class Server:
                 try:
                     exc = task.exception()
                 except asyncio.CancelledError:
-                    self._logger.system(
-                        "background_task_cancelled",
-                        {"source": "handle_domain_event"},
-                        level="DEBUG",
-                    )
                     return
                 if exc is not None:
                     self._logger.system(
                         "background_task_error",
-                        {
-                            "source": "handle_domain_event",
-                            "error": str(exc),
-                        },
+                        {"source": "handle_domain_event", "error": str(exc)},
                         level="ERROR",
                     )
+
             if recipient_id:
                 task = asyncio.create_task(self._websocket_server.send_to_client(recipient_id, msg))
             else:
@@ -217,14 +161,13 @@ class Server:
 
         self._controller.register_event_handler(handle_domain_event)
 
-        # WebSocket -> Controller (inbound)
+        # WebSocket → Controller (inbound)
         self._setup_websocket_handlers()
 
-        # REST routes -> Controller (inbound)
+        # REST routes → Controller (inbound)
         self._setup_api_routes()
-    
+
     async def _broadcast_websocket_message(self, msg: WebSocketMessage) -> None:
-        """Broadcast a WebSocket message to all connected clients."""
         try:
             await self._websocket_server.broadcast(msg)
         except Exception as e:
@@ -233,49 +176,9 @@ class Server:
                 {"error": str(e)},
                 level="ERROR",
             )
-    
+
     def _setup_api_routes(self) -> None:
-        """Set up REST API routes with controller handlers."""
-
-        # ---- Handlers ----
-        async def handle_start_experiment(request_data: Dict[str, Any]) -> Dict[str, Any]:
-            try:    
-                experiment_id = request_data.get("json", {}).get("experiment_id", None)
-                participant_id = request_data.get("json", {}).get("participant_id", None)
-
-                status_msg = await self._controller.start_experiment(experiment_id=experiment_id, participant_id=participant_id)
-                return json_safe({"status": status_msg})
-
-            except Exception as error:
-                return {"status": "error", "error": str(error)}
-            
-        async def handle_end_experiment(_: Dict[str, Any]) -> Dict[str, Any]:
-            try:
-                status_msg = await self._controller.end_experiment()
-                return json_safe({"status": status_msg})
-            except Exception as error:
-                return {"status": "error", "error": str(error)}
-
-        async def handle_connect_eye_tracker(request_data: Dict[str, Any]) -> Dict[str, Any]:
-            device_id = request_data.get("json", {}).get("device_id", None)
-            # Await the connection and return the result
-            try:
-               ok = await self._controller.connect_eye_tracker(device_id)
-               return {"status": "connected" if ok else "failed"}
-            except Exception as error:
-                return {"status": "error", "error": str(error)}
-        
-        
-        async def handle_disconnect_eye_tracker(_: Dict[str, Any]) -> Dict[str, Any]:
-            # Await the disconnection
-            try:
-                ok = await self._controller.disconnect_eye_tracker()
-                return {"status": "disconnected" if ok else "failed"}
-            except Exception as error:
-                return {"status": "error", "error": str(error)}
-
         async def handle_feedback_interaction(request_data: Dict[str, Any]) -> Dict[str, Any]:
-            success = False
             try:
                 interaction_data = request_data.get("json", {})
                 interaction = FeedbackInteraction.from_dict(interaction_data)
@@ -284,20 +187,15 @@ class Server:
             except Exception as e:
                 self._logger.system(
                     "error_handling_feedback_interaction",
-                    {
-                        "error": str(e),
-                        "traceback": repr(e)
-                    },
+                    {"error": str(e)},
                     level="ERROR",
                 )
                 return {"status": "error", "error": str(e)}
-            
+
         async def handle_set_mode(request_data: Dict[str, Any]) -> Dict[str, Any]:
             mode = request_data.get("json", {}).get("mode", "")
-
             if mode not in [m.value for m in OperationMode]:
                 return {"status": "error", "error": f"Invalid mode: {mode}"}
-
             try:
                 self._controller.set_operation_mode(OperationMode(mode))
                 return {"status": "mode_set", "mode": mode}
@@ -306,65 +204,16 @@ class Server:
 
         async def handle_set_cooldown(request_data: Dict[str, Any]) -> Dict[str, Any]:
             cooldown_seconds = request_data.get("json", {}).get("cooldown_seconds", None)
-            
             if cooldown_seconds is None:
                 return {"status": "error", "error": "cooldown_seconds is required"}
-            
             try:
                 cooldown_seconds = float(cooldown_seconds)
                 if cooldown_seconds < 0:
                     return {"status": "error", "error": "cooldown_seconds must be non-negative"}
-                
                 self._controller.set_feedback_cooldown(cooldown_seconds)
                 return {"status": "cooldown_set", "cooldown_seconds": cooldown_seconds}
             except (ValueError, TypeError) as e:
-                return {"status": "error", "error": f"Invalid cooldown_seconds: {e}"}    
-
-        async def handle_start_baseline(request_data: Dict[str, Any]) -> Dict[str, Any]:
-            participant_id = request_data.get("json", {}).get("participant_id", None)
-            if not participant_id:
-                return {"status": "error", "error": "participant_id is required"}
-
-            try:
-                self._controller.start_baseline_recording(participant_id)
-                return {"status": "baseline_recording_started", "participant_id": participant_id}
-            except Exception as e:
-                return {"status": "error", "error": str(e)}
-
-        async def handle_stop_baseline(request_data: Dict[str, Any]) -> Dict[str, Any]:
-            participant_id = request_data.get("json", {}).get("participant_id", None)
-            if not participant_id:
-                return {"status": "error", "error": "participant_id is required"}
-
-            try:
-                baseline = self._controller.stop_baseline_recording(participant_id)
-                if baseline:
-                    return {
-                        "status": "baseline_recording_completed",
-                        "participant_id": participant_id,
-                        "metrics": {k: {"mean": round(v.mean, 4), "std": round(v.std, 4)}
-                                   for k, v in baseline.metrics.items()},
-                    }
-                else:
-                    return {"status": "error", "error": "Baseline recording failed - insufficient data"}
-            except Exception as e:
-                return {"status": "error", "error": str(e)}
-
-        async def handle_clear_baseline(_: Dict[str, Any]) -> Dict[str, Any]:
-            try:
-                self._controller.clear_baseline()
-                return {"status": "baseline_cleared"}
-            except Exception as e:
-                return {"status": "error", "error": str(e)}
-
-        async def handle_baseline_status(_: Dict[str, Any]) -> Dict[str, Any]:
-            try:
-                has_baseline = self._controller.has_baseline()
-                return {"status": "ok", "has_baseline": has_baseline}
-            except Exception as e:
-                return {"status": "error", "error": str(e)}
-        
-        # ---- Register Routes ----
+                return {"status": "error", "error": f"Invalid cooldown_seconds: {e}"}
 
         self._rest_api.register_route(
             "/status",
@@ -373,33 +222,9 @@ class Server:
         )
 
         self._rest_api.register_route(
-            "/experiment/start",
-            HttpMethod.POST,
-            handle_start_experiment
-        )
-        
-        self._rest_api.register_route(
-            "/experiment/end",
-            HttpMethod.POST,
-            handle_end_experiment
-        )
-
-        self._rest_api.register_route(
             "/feedback/manual_send",
             HttpMethod.GET,
             self._controller.manual_send_feedback,
-        )
-
-        self._rest_api.register_route(
-            "/eye_tracker/connect",
-            HttpMethod.POST,
-            handle_connect_eye_tracker,
-        )
-
-        self._rest_api.register_route(
-            "/eye_tracker/disconnect",
-            HttpMethod.POST,
-            handle_disconnect_eye_tracker,
         )
 
         self._rest_api.register_route(
@@ -420,42 +245,13 @@ class Server:
             handle_set_cooldown,
         )
 
-        self._rest_api.register_route(
-            "/baseline/start",
-            HttpMethod.POST,
-            handle_start_baseline,
-        )
-
-        self._rest_api.register_route(
-            "/baseline/stop",
-            HttpMethod.POST,
-            handle_stop_baseline,
-        )
-
-        self._rest_api.register_route(
-            "/baseline/clear",
-            HttpMethod.POST,
-            handle_clear_baseline,
-        )
-
-        self._rest_api.register_route(
-            "/baseline/status",
-            HttpMethod.GET,
-            handle_baseline_status,
-        )
-    
     def _setup_websocket_handlers(self) -> None:
-        """
-        Set up WebSocket message handlers to handle messages correctly.
-        """
         async def on_context_update(message: WebSocketMessage, client_id: str) -> None:
             self._logger.system(
                 "context_update_received",
                 {"client_id": client_id},
                 level="DEBUG",
             )
-
-            # Convert payload into your internal CodeContext type
             ctx = CodeContext.from_dict(message.payload)
             ctx.metadata = {**ctx.metadata, "requester_id": client_id}
             await self._controller.handle_context_update(ctx)
@@ -465,62 +261,14 @@ class Server:
                 type=MessageType.PONG,
                 timestamp=datetime.datetime.now(datetime.timezone.utc).timestamp(),
                 payload={},
-                message_id=message.message_id,  # Echo the incoming message_id
+                message_id=message.message_id,
             )
             await self._websocket_server.send_to_client(client_id, pong_msg)
 
-        # Register handlers here
-
-        # Register the handler for context updates
         self._websocket_server.register_handler(MessageType.CONTEXT_UPDATE, on_context_update)
         self._websocket_server.register_handler(MessageType.PING, on_ping)
-    
+
     async def _shutdown_handler(self, sig: signal.Signals) -> None:
-        """
-        Handle shutdown signals.
-        
-        Args:
-            sig: The signal received.
-        """
-        self._logger.system(
-            "shutdown_signal",
-            {"signal": sig.name},
-        )
+        self._logger.system("shutdown_signal", {"signal": sig.name})
         await self.stop()
         self._loop.stop()
-
-
-def create_server(config_path: Optional[str] = None) -> Server:
-    """
-    Factory function to create a server instance.
-    
-    Args:
-        config_path: Optional path to configuration file.
-        
-    Returns:
-        Configured server instance.
-    """
-    config = SystemConfig.load_from_file(config_path) if config_path else SystemConfig()
-    server = Server(config)
-    return server
-
-
-def main() -> None:
-    """Main entry point for running the server."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Run the combined backend server.")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default=None,
-        help="Path to the configuration file.",
-    )
-    args = parser.parse_args()
-
-    server = create_server(args.config)
-    server.run()
-
-
-if __name__ == "__main__":
-    main()

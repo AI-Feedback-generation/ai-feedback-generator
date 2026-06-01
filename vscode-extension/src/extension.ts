@@ -1,5 +1,5 @@
 /**
- * Eye Tracking Debugger Extension
+ * AI Feedback Generator Extension
  *
  * Main entry point for the VS Code extension.
  * Handles extension activation, command registration, and lifecycle management.
@@ -41,36 +41,14 @@ const port = config.get<number>('apiPort') || 8080;
 export async function activate(
     context: vscode.ExtensionContext,
 ): Promise<void> {
-    console.log('Eye Tracking Debugger extension is now active');
+    console.log('AI Feedback Generator extension is now active');
 
-    // Initialize components
     initializeComponents(context);
-
-    // Register commands
     registerCommands(context);
-
-    // Set up event listeners
     setupEventListeners(context);
 
-    // Auto-connect if configured
     if (config.get<boolean>('autoConnectBackend')) {
         await connectToBackend();
-    }
-
-    if (config.get<boolean>('autoConnectEyeTracker')) {
-        try {
-            await fetchStatus(host, port);
-            const status = await fetchStatus(host, port);
-
-            if (isStatusUpdatePayload(status) && !status.eye_tracker_model) {
-                await connectToEyeTracker();
-            }
-        } catch (error) {
-            vscode.window.showWarningMessage(
-                'Could not connect to backend to check eye tracker status for auto-connect: ' +
-                    error,
-            );
-        }
     }
 
     await refreshStatus();
@@ -95,7 +73,6 @@ function initializeComponents(context: vscode.ExtensionContext): void {
 
     wsClient = new WebSocketClient(host, port);
 
-    // Initialize WebviewViewProvider
     webviewProvider = new FeedbackViewProvider(context.extensionUri);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
@@ -104,15 +81,12 @@ function initializeComponents(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Set up webview callbacks
     webviewProvider.setCallbacks({
         onConnect: connectToBackend,
         onDisconnect: disconnectFromBackend,
         onToggleMode: toggleMode,
         onClearFeedback: clearFeedback,
         onTriggerFeedback: triggerFeedbackSend,
-        onConnectEyeTracker: connectToEyeTracker,
-        onDisconnectEyeTracker: disconnectFromEyeTracker,
         onFeedbackInteraction: (feedbackId, interactionType) => {
             handleFeedbackInteraction({
                 feedback_id: feedbackId,
@@ -120,31 +94,26 @@ function initializeComponents(context: vscode.ExtensionContext): void {
                 timestamp: Math.floor(Date.now() / 1000),
             });
         },
-        onStartExperiment: startExperiment,
-        onEndExperiment: stopExperiment,
         onSetCooldown: setCooldown,
     });
+
     contextCollector = new ContextCollector();
     feedbackRenderer = new FeedbackRenderer(context);
     statusBar = new StatusBarManager(context);
 
-    // Configure callbacks
     feedbackRenderer.setInteractionCallback((interaction) => {
         handleFeedbackInteraction(interaction);
     });
 
-    // Update UI when connection state changes (e.g., server shutdown)
     wsClient.onConnectionChange((connected: boolean) => {
         statusBar?.setConnected(connected);
         webviewProvider?.updateConnectionStatus(connected);
     });
 
-    // Set up message handlers
     setupMessageHandlers();
 }
 
 async function refreshStatus(): Promise<void> {
-    // Fetch system status from REST API and update status bar
     try {
         const statusPayload = await fetchStatus(host, port);
         if (isStatusUpdatePayload(statusPayload)) {
@@ -166,7 +135,6 @@ async function refreshStatus(): Promise<void> {
  * Register extension commands.
  */
 function registerCommands(context: vscode.ExtensionContext): void {
-    // Connect command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.connect',
@@ -174,7 +142,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Disconnect command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.disconnect',
@@ -182,7 +149,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Toggle mode command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.toggleMode',
@@ -190,7 +156,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Show status command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.showStatus',
@@ -198,7 +163,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Clear feedback command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.clearFeedback',
@@ -206,7 +170,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Trigger feedback send command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.triggerFeedbackSend',
@@ -214,39 +177,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         ),
     );
 
-    // Connect to eye tracker command
-    context.subscriptions.push(
-        vscode.commands.registerCommand(
-            'eyeTrackingDebugger.connectEyeTracker',
-            connectToEyeTracker,
-        ),
-    );
-
-    // Disconnect from eye tracker command
-    context.subscriptions.push(
-        vscode.commands.registerCommand(
-            'eyeTrackingDebugger.disconnectEyeTracker',
-            disconnectFromEyeTracker,
-        ),
-    );
-
-    // Start Experiment command
-    context.subscriptions.push(
-        vscode.commands.registerCommand(
-            'eyeTrackingDebugger.startExperiment',
-            startExperiment,
-        ),
-    );
-
-    // Stop Experiment command
-    context.subscriptions.push(
-        vscode.commands.registerCommand(
-            'eyeTrackingDebugger.stopExperiment',
-            stopExperiment,
-        ),
-    );
-
-    // Set Cooldown command
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'eyeTrackingDebugger.setCooldown',
@@ -259,22 +189,18 @@ function registerCommands(context: vscode.ExtensionContext): void {
  * Set up event listeners for editor changes.
  */
 function setupEventListeners(context: vscode.ExtensionContext): void {
-    // Listen for active editor changes
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(onActiveEditorChanged),
     );
 
-    // Listen for document changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(onDocumentChanged),
     );
 
-    // Listen for selection changes
     context.subscriptions.push(
         vscode.window.onDidChangeTextEditorSelection(onSelectionChanged),
     );
 
-    // Listen for configuration changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(onConfigurationChanged),
     );
@@ -300,19 +226,15 @@ async function connectToBackend(): Promise<void> {
     const connected = await wsClient.connect();
     if (connected) {
         vscode.window.showInformationMessage(
-            'Connected to Eye Tracking backend',
+            'Connected to AI Feedback Generator backend',
         );
         statusBar?.setConnected(true);
         webviewProvider?.updateConnectionStatus(true);
-
-        // Send initial context immediately
         sendContextUpdate();
-
-        // Refresh status from backend
         refreshStatus();
     } else {
         vscode.window.showErrorMessage(
-            'Failed to connect to Eye Tracking backend',
+            'Failed to connect to AI Feedback Generator backend',
         );
         webviewProvider?.updateConnectionStatus(false);
     }
@@ -320,16 +242,13 @@ async function connectToBackend(): Promise<void> {
 
 async function disconnectFromBackend(): Promise<void> {
     const result = await vscode.window.showInformationMessage(
-        'Do you want to disconnect from the Eye Tracking backend?',
+        'Do you want to disconnect from the AI Feedback Generator backend?',
         { modal: true },
         'Yes',
         'No',
     );
 
     if (result !== 'Yes') {
-        vscode.window.showInformationMessage(
-            'Disconnect cancelled - still connected to backend',
-        );
         return;
     }
 
@@ -337,31 +256,24 @@ async function disconnectFromBackend(): Promise<void> {
     statusBar?.setConnected(false);
     webviewProvider?.updateConnectionStatus(false);
     vscode.window.showInformationMessage(
-        'Disconnected from Eye Tracking backend',
+        'Disconnected from AI Feedback Generator backend',
     );
 }
 
 async function toggleMode(new_mode: OperationMode): Promise<void> {
     if (!new_mode) {
-        // Input for selecting mode if not provided
         const selectedMode = await vscode.window.showQuickPick(
-            ['reactive', 'proactive', 'control', 'questionnaire'],
-            {
-                placeHolder: 'Select operation mode',
-            },
+            ['reactive', 'proactive'],
+            { placeHolder: 'Select operation mode' },
         );
-        if (!selectedMode) {
-            return; // User cancelled
-        }
+        if (!selectedMode) return;
         new_mode = selectedMode as OperationMode;
     }
 
     try {
         await fetch(`http://${host}:${port}/mode`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: new_mode }),
         });
     } catch (error) {
@@ -373,7 +285,7 @@ async function setCooldown(cooldownSeconds: number): Promise<void> {
     if (!cooldownSeconds) {
         const input = await vscode.window.showInputBox({
             prompt: 'Enter cooldown duration in seconds (0 to disable)',
-            placeHolder: 'e.g., 300 for 5 minutes',
+            placeHolder: 'e.g., 60 for 1 minute',
             validateInput: (value) => {
                 const num = Number(value);
                 if (isNaN(num) || num < 0) {
@@ -382,18 +294,14 @@ async function setCooldown(cooldownSeconds: number): Promise<void> {
                 return null;
             },
         });
-        if (input === undefined) {
-            return; // User cancelled
-        }
+        if (input === undefined) return;
         cooldownSeconds = Number(input);
     }
 
     try {
         await fetch(`http://${host}:${port}/cooldown`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cooldown_seconds: cooldownSeconds }),
         });
     } catch (error) {
@@ -402,7 +310,6 @@ async function setCooldown(cooldownSeconds: number): Promise<void> {
 }
 
 async function showStatus(): Promise<void> {
-    // Show detailed status using StatusBarManager
     if (statusBar) {
         await statusBar.showStatusDetails();
     } else {
@@ -410,49 +317,7 @@ async function showStatus(): Promise<void> {
     }
 }
 
-async function connectToEyeTracker(): Promise<void> {
-    try {
-        await fetch(`http://${host}:${port}/eye_tracker/connect`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ device_id: '' }),
-        });
-        vscode.window.showInformationMessage(
-            'Eye tracker connection initiated',
-        );
-    } catch (error) {
-        console.error('Failed to connect to eye tracker:', error);
-    }
-}
-
-async function disconnectFromEyeTracker(): Promise<void> {
-    const result = await vscode.window.showInformationMessage(
-        'Do you want to disconnect from the eye tracker?',
-        { modal: true },
-        'Yes',
-        'No',
-    );
-
-    if (result !== 'Yes') {
-        vscode.window.showInformationMessage(
-            'Eye tracker disconnect cancelled',
-        );
-        return;
-    }
-
-    try {
-        await fetch(`http://${host}:${port}/eye_tracker/disconnect`, {
-            method: 'POST',
-        });
-    } catch (error) {
-        console.error('Failed to disconnect from eye tracker:', error);
-    }
-}
-
 function clearFeedback(): void {
-    // TODO: Implement feedback clearing
     feedbackRenderer?.clearAll();
     webviewProvider?.clearFeedback();
     vscode.window.showInformationMessage('Feedback cleared');
@@ -472,21 +337,14 @@ async function triggerFeedbackSend(): Promise<void> {
 
 function onActiveEditorChanged(editor: vscode.TextEditor | undefined): void {
     if (editor) {
-        console.log(`Active editor changed: ${editor.document.uri.toString()}`);
-        // Send context immediately when switching files
         sendContextUpdate();
         refreshStatus();
-    } else {
-        console.log('No active editor');
     }
 }
 
 function onDocumentChanged(event: vscode.TextDocumentChangeEvent): void {
-    // Only track changes in the active editor
     const activeEditor = vscode.window.activeTextEditor;
     if (activeEditor && event.document === activeEditor.document) {
-        console.log(`Document changed: ${event.document.uri.toString()}`);
-        // Debounce context updates during typing
         scheduleContextUpdate();
         refreshStatus();
     }
@@ -498,14 +356,10 @@ function onSelectionChanged(
     console.log(
         `Selection changed in: ${event.textEditor.document.uri.toString()}`,
     );
-    // Debounce selection changes (cursor movement)
     scheduleContextUpdate();
     refreshStatus();
 }
 
-/**
- * Schedule a debounced context update.
- */
 function scheduleContextUpdate(): void {
     if (contextUpdateTimer) {
         clearTimeout(contextUpdateTimer);
@@ -515,18 +369,13 @@ function scheduleContextUpdate(): void {
     }, CONTEXT_UPDATE_DEBOUNCE_MS);
 }
 
-/**
- * Send current context to the backend.
- */
 function sendContextUpdate(): void {
     if (!wsClient?.isConnected()) {
-        console.log('WebSocket not connected, skipping context update');
         return;
     }
 
     const context = contextCollector?.collectContext();
     if (context) {
-        console.log(`Sending context update for: ${context.file_path}`);
         wsClient.sendContextUpdate(context);
     }
 }
@@ -546,11 +395,7 @@ function updateConfiguration(): void {
 function handleFeedbackDelivery(message: {
     payload: Record<string, unknown>;
 }): void {
-    console.log('Received feedback delivery message');
-
     const payload = message.payload as unknown as FeedbackDeliveryPayload;
-
-    console.log(`Feedback items received: ${payload.items}`);
     feedbackRenderer?.addFeedback(payload.items);
     webviewProvider?.updateFeedback(payload.items);
 }
@@ -568,15 +413,13 @@ function handleStatusUpdate(message: {
         return;
     }
 
-    const payload = payloadUnknown; // type is now confirmed
+    statusBar?.setStatus(payloadUnknown);
+    webviewProvider?.updateStatus(payloadUnknown);
 
-    statusBar?.setStatus(payload);
-    webviewProvider?.updateStatus(payload);
-
-    if (payload.status === SystemStatus.ERROR && payload.error_message) {
-        console.error('Backend error:', payload.error_message);
+    if (payloadUnknown.status === SystemStatus.ERROR && payloadUnknown.error_message) {
+        console.error('Backend error:', payloadUnknown.error_message);
         vscode.window.showErrorMessage(
-            `Eye Tracking Debugger Error: ${payload.error_message}`,
+            `AI Feedback Generator Error: ${payloadUnknown.error_message}`,
         );
     }
 }
@@ -591,10 +434,9 @@ function handleContextRequest(_message: {
 }
 
 function handleError(message: { payload: Record<string, unknown> }): void {
-    // TODO: Implement error handling
     const errorMessage =
         (message.payload['message'] as string) || 'Unknown error';
-    vscode.window.showErrorMessage(`Eye Tracking Error: ${errorMessage}`);
+    vscode.window.showErrorMessage(`AI Feedback Error: ${errorMessage}`);
 }
 
 async function handleFeedbackInteraction(
@@ -623,110 +465,10 @@ async function handleFeedbackInteraction(
     try {
         await fetch(`http://${host}:${port}/feedback/interaction`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(feedbackInteraction),
         });
     } catch (error) {
         console.error('Failed to send feedback interaction:', error);
-    }
-}
-
-async function startExperiment(
-    experimentID?: string,
-    participantID?: string,
-): Promise<void> {
-    try {
-        const statusPayload = await fetchStatus(host, port);
-        if (
-            isStatusUpdatePayload(statusPayload) &&
-            !statusPayload.eye_tracker_model
-        ) {
-            vscode.window.showWarningMessage(
-                'Cannot start experiment: no eye tracker connected.',
-            );
-            return;
-        }
-    } catch (error) {
-        console.error(
-            'Failed to verify eye tracker status before starting experiment:',
-            error,
-        );
-    }
-
-    if (!experimentID) {
-        experimentID = await vscode.window.showInputBox({
-            prompt: 'Enter Experiment ID',
-            placeHolder: 'e.g., exp123',
-        });
-    }
-    if (!participantID) {
-        participantID = await vscode.window.showInputBox({
-            prompt: 'Enter Participant ID',
-            placeHolder: 'e.g., participant456',
-        });
-    }
-
-    if (!experimentID || !participantID) {
-        vscode.window.showWarningMessage(
-            'Experiment start cancelled - missing experiment or participant ID',
-        );
-        return;
-    }
-
-    const result = await vscode.window.showInformationMessage(
-        'Do you want to start the experiment?',
-        { modal: true },
-        'Yes',
-        'No',
-    );
-
-    if (result === 'Yes') {
-        vscode.window.showInformationMessage('Experiment started!');
-    } else {
-        vscode.window.showInformationMessage('Experiment start cancelled');
-        return;
-    }
-
-    try {
-        await fetch(`http://${host}:${port}/experiment/start`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                experiment_id: experimentID,
-                participant_id: participantID,
-            }),
-        });
-        vscode.window.showInformationMessage('Experiment start initiated');
-    } catch (error) {
-        console.error('Failed to start experiment:', error);
-    }
-}
-
-async function stopExperiment(): Promise<void> {
-    const result = await vscode.window.showInformationMessage(
-        'Do you want to stop the experiment?',
-        { modal: true },
-        'Yes',
-        'No',
-    );
-
-    if (result === 'Yes') {
-        vscode.window.showInformationMessage('Experiment stopping!');
-    } else {
-        vscode.window.showInformationMessage('Experiment stop cancelled');
-        return;
-    }
-
-    try {
-        await fetch(`http://${host}:${port}/experiment/end`, {
-            method: 'POST',
-        });
-        vscode.window.showInformationMessage('Experiment stop initiated');
-    } catch (error) {
-        console.error('Failed to stop experiment:', error);
     }
 }

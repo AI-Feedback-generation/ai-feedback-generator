@@ -3,9 +3,6 @@
  * These mirror the Python types in backend/types/messages.py
  */
 
-/**
- * Types of WebSocket messages.
- */
 export enum MessageType {
     // From VS Code to Backend
     CONTEXT_UPDATE = 'context_update',
@@ -23,22 +20,15 @@ export enum MessageType {
     CONFIG_UPDATE = 'config_update',
 }
 
-/**
- * System status states.
- */
 export enum SystemStatus {
     INITIALIZING = 'initializing',
     READY = 'ready',
-    CALIBRATING = 'calibrating',
     RUNNING = 'running',
     STOPPED = 'stopped',
     ERROR = 'error',
     DISCONNECTED = 'disconnected',
 }
 
-/**
- * Feedback types.
- */
 export enum FeedbackType {
     HINT = 'hint',
     SUGGESTION = 'suggestion',
@@ -47,9 +37,6 @@ export enum FeedbackType {
     SIMPLIFICATION = 'simplification',
 }
 
-/**
- * Feedback priority levels.
- */
 export enum FeedbackPriority {
     LOW = 'low',
     MEDIUM = 'medium',
@@ -57,26 +44,17 @@ export enum FeedbackPriority {
     CRITICAL = 'critical',
 }
 
-/**
- * A position in a text document.
- */
 export interface CodePosition {
     line: number;
     character: number;
 }
 
-/**
- * A range in a text document.
- */
 export interface CodeRange {
     start: CodePosition;
     end: CodePosition;
     content?: string;
 }
 
-/**
- * A diagnostic message from VS Code.
- */
 export interface DiagnosticInfo {
     message: string;
     severity: string;
@@ -85,9 +63,6 @@ export interface DiagnosticInfo {
     code?: string;
 }
 
-/**
- * Complete code context captured from VS Code.
- *  */
 export interface CodeContext {
     file_path: string;
     file_content?: string;
@@ -101,9 +76,6 @@ export interface CodeContext {
     metadata?: Record<string, unknown>;
 }
 
-/**
- * Metadata for a feedback item.
- */
 export interface FeedbackMetadata {
     generated_at: number;
     generation_time_ms: number;
@@ -115,9 +87,6 @@ export interface FeedbackMetadata {
     extra?: Record<string, unknown>;
 }
 
-/**
- * A single feedback item.
- */
 export interface FeedbackItem {
     title: string;
     message: string;
@@ -132,18 +101,13 @@ export interface FeedbackItem {
 }
 
 export type InteractionType =
-    // Stage 1: Initial presentation
-    | 'presented' // Feedback was shown to user
-    | 'accepted' // User accepted to see feedback details
-    | 'rejected' // User rejected seeing the feedback
-    // Stage 2: After accepting
-    | 'highlighted' // User clicked to highlight in code
-    | 'dismissed' // User dismissed the shown feedback
-    | 'done'; // User indicated they are done with the feedback (e.g. closed details view)
+    | 'presented'
+    | 'accepted'
+    | 'rejected'
+    | 'highlighted'
+    | 'dismissed'
+    | 'done';
 
-/**
- * User interaction with feedback.
- */
 export interface FeedbackInteraction {
     feedback_id: string;
     interaction_type: InteractionType;
@@ -151,9 +115,6 @@ export interface FeedbackInteraction {
     metadata?: Record<string, unknown>;
 }
 
-/**
- * Base WebSocket message structure.
- */
 export interface WebSocketMessage {
     type: MessageType;
     timestamp: number;
@@ -161,46 +122,27 @@ export interface WebSocketMessage {
     message_id?: string;
 }
 
-/**
- * Feedback delivery message from backend.
- */
 export interface FeedbackDeliveryPayload {
     items: FeedbackItem[];
     request_id?: string;
-    triggered_by: string; // e.g. "context_update", "manual_trigger", etc.
-    user_state_score?: number;
+    triggered_by: string;
 }
 
 export enum OperationMode {
     REACTIVE = 'reactive',
     PROACTIVE = 'proactive',
-    CONTROL = 'control',
-    QUESTIONNAIRE = 'questionnaire',
 }
 
-/**
- * System status update message.
- */
 export interface SystemStatusMessage {
     status: SystemStatus;
     timestamp: number;
-    eye_tracker_model?: string | null;
     operation_mode: OperationMode;
-    eye_samples_processed: number;
-    code_window_samples_processed: number;
     feedback_generated: number;
-    experiment_active: boolean;
     feedback_cooldown_left_s: number;
     llm_model?: string;
-    experiment_id?: string;
-    participant_id?: string;
-    user_state_score?: number | null;
     error_message?: string;
 }
 
-/**
- * Context request from backend.
- */
 export interface ContextRequestPayload {
     request_id: string;
     include_file_content: boolean;

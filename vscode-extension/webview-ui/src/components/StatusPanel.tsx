@@ -18,7 +18,9 @@ export function StatusPanel({ status }: StatusPanelProps) {
                 }}
             >
                 <span>System Status</span>
-                <button className="btn small secondary toggle-btn" onClick={() => setToggled(!toggled)}>{toggled ? "Hide" : "Show"}</button>
+                <button className="btn small secondary toggle-btn" onClick={() => setToggled(!toggled)}>
+                    {toggled ? "Hide" : "Show"}
+                </button>
             </div>
             {toggled && (
                 <div className="status-info">
@@ -28,33 +30,11 @@ export function StatusPanel({ status }: StatusPanelProps) {
                     <span className="label">Mode</span>
                     <span className="value">{status.operation_mode}</span>
 
-                    <span className="label">Eye Tracker</span>
-                    <span className="value">{status.eye_tracker_model ? `✓ ${status.eye_tracker_model}` : "✗ Disconnected"}</span>
-
-                    <span className="label">Eye Samples</span>
-                    <span className="value">{status.eye_samples_processed}</span>
-
-                    <span className="label">Code Samples</span>
-                    <span className="value">{status.code_window_samples_processed}</span>
-
                     <span className="label">Feedback Generated</span>
                     <span className="value">{status.feedback_generated}</span>
 
-                    <span className="label">Experiment</span>
-                    <span className="value">{status.experiment_active ? "Running" : "Not Running"}</span>
-
-                    <span className="label">Experiment ID</span>
-                    <span className="value">{status.experiment_id || "-"}</span>
-
-                    <span className="label">Participant ID</span>
-                    <span className="value">{status.participant_id ? "Configured" : "-"}</span>
-
-
                     <span className="label">Cooldown</span>
                     <span className="value">{status.feedback_cooldown_left_s || 0}s</span>
-
-                    <span className="label">User State Score</span>
-                    <span className="value">{status.user_state_score !== undefined && status.user_state_score !== null ? status.user_state_score.toFixed(2) : "-"}</span>
 
                     {status.llm_model && (
                         <>
@@ -63,8 +43,7 @@ export function StatusPanel({ status }: StatusPanelProps) {
                         </>
                     )}
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 }

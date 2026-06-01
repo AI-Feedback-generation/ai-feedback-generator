@@ -21,9 +21,6 @@ export class StatusBarManager {
         this.statusBarItem.show();
     }
 
-    /**
-     * Update the displayed status.
-     */
     setStatus(status: SystemStatusMessage): void {
         this.currentStatus = status;
         this.updateDisplay();
@@ -33,9 +30,6 @@ export class StatusBarManager {
         }
     }
 
-    /**
-     * Set the connection state.
-     */
     setConnected(connected: boolean): void {
         this.connectedToBackend = connected;
         this.updateDisplay();
@@ -45,9 +39,6 @@ export class StatusBarManager {
         }
     }
 
-    /**
-     * Set the operation mode.
-     */
     setMode(mode: OperationMode): void {
         if (!this.currentStatus) return;
 
@@ -59,9 +50,6 @@ export class StatusBarManager {
         }
     }
 
-    /**
-     * Show temporary message.
-     */
     showMessage(message: string, durationMs: number = 3000): void {
         const originalText = this.statusBarItem.text;
         this.statusBarItem.text = message;
@@ -70,9 +58,6 @@ export class StatusBarManager {
         }, durationMs);
     }
 
-    /**
-     * Dispose of resources.
-     */
     dispose(): void {
         this.statusBarItem.dispose();
     }
@@ -94,7 +79,7 @@ export class StatusBarManager {
 
         this.statusPanel = vscode.window.createWebviewPanel(
             'eyeTrackingDebugger.status',
-            'Eye Tracking Debugger – Status',
+            'AI Feedback Generator – Status',
             { viewColumn: vscode.ViewColumn.Active, preserveFocus: true },
             {
                 enableScripts: true,
@@ -121,7 +106,7 @@ export class StatusBarManager {
         this.statusBarItem.color = undefined;
 
         if (!this.connectedToBackend || !this.currentStatus) {
-            this.statusBarItem.text = 'Eye Tracking Debugger: Disconnected';
+            this.statusBarItem.text = 'AI Feedback: Disconnected';
             this.statusBarItem.backgroundColor = new vscode.ThemeColor(
                 'statusBarItem.errorBackground',
             );
@@ -134,19 +119,8 @@ export class StatusBarManager {
             this.currentStatus.operation_mode.charAt(0).toUpperCase() +
             this.currentStatus.operation_mode.slice(1).toLowerCase();
 
-        const eyeTrackerText = this.currentStatus.eye_tracker_model
-            ? `Eye Tracker: ${this.currentStatus.eye_tracker_model}`
-            : 'Eye Tracker: Disconnected';
-
-        const experimentText = this.currentStatus.experiment_active
-            ? 'Experiment: Running'
-            : 'Experiment: Stopped';
-
-        this.statusBarItem.text = `Debugger: ${statusIcon} | Connected | ${modeText} | ${eyeTrackerText} | ${experimentText}`;
-
-        this.statusBarItem.color = this.getStatusColor(
-            this.currentStatus.status,
-        );
+        this.statusBarItem.text = `AI Feedback: ${statusIcon} | Connected | ${modeText}`;
+        this.statusBarItem.color = this.getStatusColor(this.currentStatus.status);
     }
 
     private getStatusIcon(status: SystemStatus): string {
@@ -155,8 +129,6 @@ export class StatusBarManager {
                 return '$(loading~spin)';
             case SystemStatus.READY:
                 return '$(check)';
-            case SystemStatus.CALIBRATING:
-                return '$(sync~spin)';
             case SystemStatus.RUNNING:
                 return '$(play)';
             case SystemStatus.DISCONNECTED:
@@ -176,8 +148,6 @@ export class StatusBarManager {
                 return 'orange';
             case SystemStatus.READY:
                 return 'green';
-            case SystemStatus.CALIBRATING:
-                return 'yellow';
             case SystemStatus.RUNNING:
                 return 'green';
             case SystemStatus.STOPPED:
@@ -265,7 +235,7 @@ export class StatusBarManager {
                 </head>
                 <body>
                 <div class="header">
-                    <h2>Eye Tracking Debugger – Status</h2>
+                    <h2>AI Feedback Generator – Status</h2>
                     <div class="muted" id="last_updated">Last updated: –</div>
                 </div>
 
@@ -282,26 +252,8 @@ export class StatusBarManager {
                     <div class="label">Mode</div>
                     <div class="value" id="mode">–</div>
 
-                    <div class="label">Eye Tracker</div>
-                    <div class="value" id="eye_tracker_model">–</div>
-
-                    <div class="label">Experiment</div>
-                    <div class="value" id="experiment_active">–</div>
-
                     <div class="label">LLM Model</div>
-                    <div class="value" id="llm_model">–</div>   
-
-                    <div class="label">Experiment ID</div>
-                    <div class="value" id="experiment_id">–</div>
-
-                    <div class="label">Participant ID</div>
-                    <div class="value" id="participant_id">–</div>
-
-                    <div class="label">Eye samples processed</div>
-                    <div class="value" id="eye_samples_processed">–</div>
-
-                    <div class="label">Code window samples processed</div>
-                    <div class="value" id="code_window_samples_processed">–</div>
+                    <div class="value" id="llm_model">–</div>
 
                     <div class="label">Feedback generated</div>
                     <div class="value" id="feedback_generated">–</div>
@@ -357,13 +309,7 @@ export class StatusBarManager {
                     pillForStatus(s.status);
                     setText("time_local", s.time_local);
                     setText("mode", s.operation_mode);
-                    setText("eye_tracker_model", s.eye_tracker_model || "Disconnected");
-                    setText("experiment_active", s.experiment_active ? "Running" : "Stopped");
                     setText("llm_model", s.llm_model);
-                    setText("experiment_id", s.experiment_id);
-                    setText("participant_id", s.participant_id);
-                    setText("eye_samples_processed", s.eye_samples_processed);
-                    setText("code_window_samples_processed", s.code_window_samples_processed);
                     setText("feedback_generated", s.feedback_generated);
                     setText("feedback_cooldown_left_s", s.feedback_cooldown_left_s !== undefined ? s.feedback_cooldown_left_s : "–");
 

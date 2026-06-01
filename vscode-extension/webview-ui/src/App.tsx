@@ -4,9 +4,7 @@ import { StatusPanel } from "./components/StatusPanel";
 import { Controls } from "./components/Controls";
 import { vscode } from "./utilities/vscode";
 import { type FeedbackItem, type SystemStatus, type InteractionType, OperationMode } from "./types";
-import { ExperimentIDs } from "./components/ExperimentIDs";
 
-// Message types from extension to webview
 interface ConnectionStatusMessage {
   type: "connectionStatus";
   payload: { connected: boolean };
@@ -42,10 +40,8 @@ type ExtensionMessage =
 export function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const isConnected = status ? (status.status !== "disconnected") : false;
-  const eyeTrackerConnected = !!status?.eye_tracker_model;
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
 
-  // Handle messages from the extension
   const handleMessage = useCallback((event: MessageEvent<ExtensionMessage>) => {
     const message = event.data;
 
@@ -77,10 +73,7 @@ export function App() {
 
   useEffect(() => {
     window.addEventListener("message", handleMessage);
-
-    // Request initial state from extension
     vscode.postMessage({ type: "ready" });
-
     return () => {
       window.removeEventListener("message", handleMessage);
     };
@@ -111,7 +104,6 @@ export function App() {
   };
 
   const handleFeedbackInteraction = (feedbackId: string, interactionType: InteractionType) => {
-    // Remove from list when rejected or dismissed
     if (interactionType === "rejected" || interactionType === "dismissed" || interactionType === "done") {
       setFeedbackItems((prevItems) =>
         prevItems.filter(item => item.metadata.feedback_id !== feedbackId)
@@ -121,14 +113,6 @@ export function App() {
       type: "feedbackInteraction",
       payload: { feedbackId, interactionType }
     });
-  };
-
-  const handleConnectEyeTracker = () => {
-    vscode.postMessage({ type: "connectEyeTracker" });
-  };
-
-  const handleDisconnectEyeTracker = () => {
-    vscode.postMessage({ type: "disconnectEyeTracker" });
   };
 
   const handleSetCooldown = (cooldownSeconds: number) => {
@@ -142,31 +126,12 @@ export function App() {
     <div className="app">
       <div className="controller-section">
         <header className="header">
-          <h1>Eye Tracking Debugger</h1>
+          <h1>AI Feedback Generator</h1>
           <span className={`status-badge ${isConnected ? "connected" : "disconnected"}`}>
             <span className="status-dot" />
             {isConnected ? "Connected" : "Disconnected"}
           </span>
         </header>
-
-        <div className="section">
-          <ExperimentIDs
-            experimentIsRunning={status?.experiment_active ?? false}
-            eyeTrackerConnected={eyeTrackerConnected}
-            startExperiment={async (experimentId: string, participantId: string) => {
-              if (!eyeTrackerConnected) {
-                return;
-              }
-              vscode.postMessage({
-                type: "startExperiment",
-                payload: { experimentId, participantId }
-              });
-            }}
-            endExperiment={() => {
-              vscode.postMessage({ type: "endExperiment" });
-            }}
-          />
-        </div>
 
         <div className="section">
           <Controls
@@ -177,9 +142,6 @@ export function App() {
             onSetMode={handleSetMode}
             onClearFeedback={handleClearFeedback}
             onTriggerFeedback={handleTriggerFeedback}
-            onConnectEyeTracker={handleConnectEyeTracker}
-            onDisconnectEyeTracker={handleDisconnectEyeTracker}
-            eyeTrackerConnected={eyeTrackerConnected}
           />
         </div>
         {status &&
@@ -189,44 +151,30 @@ export function App() {
         }
       </div>
 
-
-      {status?.operation_mode !== OperationMode.CONTROL && status?.operation_mode !== OperationMode.QUESTIONNAIRE && (
-        <div className="section">
-          <div className="section-title">Feedback</div>
-          <div className="cooldown-buttons">
-
-
-            {status?.feedback_cooldown_left_s && status?.feedback_cooldown_left_s > 80000 ? (
-              <button className="btn small secondary" onClick={() => handleSetCooldown(15)} disabled={!isConnected}>
-                Enable Feedback
+      <div className="section">
+        <div className="section-title">Feedback</div>
+        <div className="cooldown-buttons">
+          {status?.feedback_cooldown_left_s && status?.feedback_cooldown_left_s > 80000 ? (
+            <button className="btn small secondary" onClick={() => handleSetCooldown(15)} disabled={!isConnected}>
+              Enable Feedback
+            </button>
+          ) : (
+            <>
+              <button className="btn small secondary" onClick={() => handleSetCooldown(300)} disabled={!isConnected}>
+                Disable for 5 min
               </button>
-            ) : (
-              <>
-                <button className="btn small secondary" onClick={() => handleSetCooldown(300)} disabled={!isConnected}>
-                  Disable for 5 min
-                </button>
-                <button className="btn small secondary" onClick={() => handleSetCooldown(86400)} disabled={!isConnected}>
-                  Disable Feedback
-                </button>
-              </>
-            )}
-          </div>
-
-          <FeedbackList
-            items={feedbackItems}
-            onInteraction={handleFeedbackInteraction}
-          />
+              <button className="btn small secondary" onClick={() => handleSetCooldown(86400)} disabled={!isConnected}>
+                Disable Feedback
+              </button>
+            </>
+          )}
         </div>
-      )}
 
-      {status?.operation_mode === OperationMode.QUESTIONNAIRE && (
-        <div className="section">
-          <div className="section-title">Questionnaire Mode Active - No Feedback Will Be Shown ⚠️</div>
-        </div>
-      )}
-
-
+        <FeedbackList
+          items={feedbackItems}
+          onInteraction={handleFeedbackInteraction}
+        />
+      </div>
     </div>
   );
 }
-

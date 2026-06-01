@@ -1,7 +1,7 @@
 {
-    "name": "eye-tracking-debugger",
-    "displayName": "Eye Tracking Debugger",
-    "description": "VS Code extension for eye-tracking based debugging assistance",
+    "name": "ai-feedback-generator",
+    "displayName": "AI Feedback Generator",
+    "description": "VS Code extension that continuously generates LLM-based feedback based on your current code context",
     "version": "0.1.0",
     "publisher": "your-publisher-name",
     "engines": {
@@ -19,8 +19,8 @@
             "activitybar": [
                 {
                     "id": "eyeTrackingDebugger",
-                    "title": "Eye Tracking Debugger",
-                    "icon": "$(eye)"
+                    "title": "AI Feedback Generator",
+                    "icon": "$(comment-discussion)"
                 }
             ]
         },
@@ -36,43 +36,35 @@
         "commands": [
             {
                 "command": "eyeTrackingDebugger.connect",
-                "title": "Eye Tracking: Connect to Backend"
+                "title": "AI Feedback: Connect to Backend"
             },
             {
                 "command": "eyeTrackingDebugger.disconnect",
-                "title": "Eye Tracking: Disconnect from Backend"
+                "title": "AI Feedback: Disconnect from Backend"
             },
             {
                 "command": "eyeTrackingDebugger.toggleMode",
-                "title": "Eye Tracking: Toggle Reactive/Proactive Mode"
+                "title": "AI Feedback: Toggle Reactive/Proactive Mode"
             },
             {
                 "command": "eyeTrackingDebugger.showStatus",
-                "title": "Eye Tracking: Show Status"
+                "title": "AI Feedback: Show Status"
             },
             {
                 "command": "eyeTrackingDebugger.clearFeedback",
-                "title": "Eye Tracking: Clear All Feedback"
+                "title": "AI Feedback: Clear All Feedback"
             },
             {
                 "command": "eyeTrackingDebugger.triggerFeedbackSend",
-                "title": "Eye Tracking: Trigger Feedback Send"
-            },
-            {
-                "command": "eyeTrackingDebugger.connectEyeTracker",
-                "title": "Eye Tracking: Connect Eye Tracker"
-            },
-            {
-                "command": "eyeTrackingDebugger.disconnectEyeTracker",
-                "title": "Eye Tracking: Disconnect Eye Tracker"
+                "title": "AI Feedback: Trigger Feedback Now"
             },
             {
                 "command": "eyeTrackingDebugger.setCooldown",
-                "title": "Eye Tracking: Set Feedback Cooldown"
+                "title": "AI Feedback: Set Feedback Cooldown"
             }
         ],
         "configuration": {
-            "title": "Eye Tracking Debugger",
+            "title": "AI Feedback Generator",
             "properties": {
                 "eyeTrackingDebugger.backendHost": {
                     "type": "string",
@@ -97,12 +89,7 @@
                 "eyeTrackingDebugger.autoConnectBackend": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Automatically connect to backend on backend connection"
-                },
-                "eyeTrackingDebugger.autoConnectEyeTracker": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Automatically connect to eye tracker on backend connection"
+                    "description": "Automatically connect to backend on startup"
                 }
             }
         }

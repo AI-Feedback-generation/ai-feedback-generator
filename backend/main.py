@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """
-Eye Tracking Debugger Backend - Main Entry Point
+AI Feedback Generator Backend - Main Entry Point
 
 Usage:
     python -m backend.main [--config CONFIG_PATH] [--host HOST] [--port PORT]
-    
-Or after installing the package:
-    eye-tracking-backend [--config CONFIG_PATH] [--host HOST] [--port PORT]
 """
 import argparse
 import asyncio
@@ -33,12 +30,12 @@ if __name__ == "__main__":
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Eye Tracking Debugger Backend Server"
+        description="AI Feedback Generator Backend Server"
     )
     parser.add_argument(
         "--config",
         type=str,
-        default="./backend/config.yaml", # Maybee enter "config.yaml" here later
+        default="./backend/config.yaml",
         help="Path to configuration file (YAML)",
     )
     parser.add_argument(
@@ -60,23 +57,9 @@ def parse_args() -> argparse.Namespace:
         help="REST API server port",
     )
     parser.add_argument(
-        "--mode",
-        type=str,
-        choices=["reactive", "proactive"],
-        default="reactive",
-        help="Operation mode",
-    )
-    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging",
-    )
-    parser.add_argument(
-        "--experiment-log-level",
-        type=str,
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default="INFO",
-        help="Experiment log level",
     )
     parser.add_argument(
         "--system-log-level",
@@ -183,7 +166,6 @@ def main() -> int:
     # Initialize logger service with configured levels
     from backend.services.logger_service import initialize_logger
     logger = initialize_logger(
-        experiment_level=args.experiment_log_level,
         system_level=args.system_log_level,
     )
     
@@ -203,7 +185,6 @@ def main() -> int:
         {
             "websocket_url": f"ws://{args.host}:{args.ws_port}",
             "api_url": f"http://{args.host}:{args.api_port}",
-            "mode": args.mode, # TODO - make this correct, its not set from arg but from config
             "debug": args.debug,
         },
     )

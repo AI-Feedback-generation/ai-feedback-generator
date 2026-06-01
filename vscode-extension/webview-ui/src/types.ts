@@ -1,6 +1,6 @@
 /**
- * Types shared between webview and extension
- * These mirror the extension types for use in React
+ * Types shared between webview and extension.
+ * These mirror the extension types for use in React.
  */
 
 export enum FeedbackType {
@@ -54,42 +54,30 @@ export interface FeedbackItem {
 }
 
 export type InteractionType =
-  // Stage 1: Initial presentation
-  | "presented" // Feedback was shown to user
-  | "accepted" // User accepted to see feedback details
-  | "rejected" // User rejected seeing the feedback
-  // Stage 2: After accepting
-  | "highlighted" // User clicked to highlight in code
-  | "dismissed" // User dismissed the shown feedback
-  | "done"; // User marked feedback as done
+  | "presented"
+  | "accepted"
+  | "rejected"
+  | "highlighted"
+  | "dismissed"
+  | "done";
 
 export enum OperationMode {
   REACTIVE = "reactive",
   PROACTIVE = "proactive",
-  CONTROL = "control",
-  QUESTIONNAIRE = "questionnaire",
 }
 
 export interface SystemStatus {
   status:
     | "initializing"
     | "ready"
-    | "calibrating"
     | "running"
     | "stopped"
     | "error"
     | "disconnected";
   timestamp: number;
-  eye_tracker_model?: string | null;
   operation_mode: OperationMode;
-  eye_samples_processed: number;
-  code_window_samples_processed: number;
   feedback_generated: number;
-  experiment_active: boolean;
   feedback_cooldown_left_s: number;
   llm_model?: string;
-  experiment_id?: string;
-  participant_id?: string;
-  user_state_score?: number | null;
   error_message?: string;
 }

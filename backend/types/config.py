@@ -96,127 +96,8 @@ def _dataclass_to_dict(obj: Any) -> Any:
 
 class OperationMode(Enum):
     """System operation modes."""
-    REACTIVE = "reactive"  # Respond to current state
-    PROACTIVE = "proactive"  # Predict and preempt
-    CONTROL = "control"  # For control experiments, no feedback
-    QUESTIONNAIRE = "questionnaire"  # Collect questionnaire responses only
-
-
-@dataclass
-class SignalProcessingConfig:
-    """Configuration for Signal Processing layer."""
-    # Input settings
-    input_sampling_rate_hz: float = 120.0
-
-    # Window settings
-    window_length_seconds: float = 1.0
-    window_overlap_ratio: float = 0.5
-
-    # Output settings
-    output_frequency_hz: float = 2.0  # 2-10 Hz as per requirements
-
-    # Metrics to extract
-    enabled_metrics: List[str] = field(default_factory=lambda: [
-        "fixation_duration",
-        "saccade_amplitude",
-        "pupil_diameter",
-        "blink_rate",
-        "data_quality",
-        "ipi"
-    ])
-
-    # Data quality settings
-    min_valid_sample_ratio: float = 0.5
-    interpolate_missing: bool = True
-    max_gap_to_interpolate_ms: float = 100.0
-
-    # Require both eyes to be valid for a sample to be considered valid
-    require_both_eyes_valid: bool = False
-
-    # TODO - add in config example
-
-    # Validation thresholds
-    min_pupil_diameter_mm: float = 1.5  # Physiological minimum
-    max_pupil_diameter_mm: float = 9.0  # Physiological maximum
-    min_gaze_coordinate: float = -0.5  # Allow some margin outside [0,1] normalized range
-    max_gaze_coordinate: float = 1.5  # Allow some margin outside [0,1] normalized range
-
-    # I-VT saccade/fixation detection
-    saccade_velocity_threshold: float = 5.0  # normalized screen units per second
-    min_fixation_duration_ms: float = 60.0   # minimum fixation duration in ms
-
-    # IPA (Index of Pupillary Activity) settings
-    ipa_window_seconds: float = 60.0  # Rolling window for IPA calculation (recommended: 60s)
-
-
-@dataclass
-class ForecastingConfig:
-    """Configuration for Forecasting Tool (proactive mode)."""
-    enabled: bool = False  # Only active in proactive mode
-
-    # Prediction settings
-    prediction_horizon_seconds: float = 30.0
-    update_rate_hz: float = 5.0
-
-    # Model settings
-    model_path: Optional[str] = None
-    model_type: str = "xgboost"  # "xgboost", "lstm", etc.
-
-    # History window for predictions (must match training.history_window_size)
-    # 120 windows × 0.5s per window = 60 seconds
-    history_window_seconds: float = 60.0
-
-    # Confidence threshold
-    min_confidence_threshold: float = 0.5
-
-
-@dataclass
-class TrainingConfig:
-    """Configuration for ML model training."""
-    # Data settings
-    data_path: Optional[str] = None  # Path to processed features
-
-    # Sequence settings
-    # With 1-second windows at 50% overlap, windows arrive every 0.5 seconds
-    # history_window_size=120 means 120 × 0.5s = 60 seconds of history
-    history_window_size: int = 60  
-    prediction_horizon: int = 20   
-
-    # Split ratios
-    train_ratio: float = 0.7
-    val_ratio: float = 0.15
-    test_ratio: float = 0.15
-
-    # XGBoost hyperparameters
-    n_estimators: int = 500
-    max_depth: int = 6
-    learning_rate: float = 0.05
-    early_stopping_rounds: int = 20
-
-    # Random seed
-    random_state: int = 42
-
-
-@dataclass
-class ReactiveToolConfig:
-    """Configuration for Reactive Tool."""
-    # Sliding window settings
-    window_size_seconds: float = 60.0
-    
-    # Model settings
-    model_type: str = "rule_based"  # "rule_based", "ml_classifier", "sequence_model"
-    model_path: Optional[str] = None
-    
-    # Thresholds for rule-based approach
-    thresholds: Dict[str, float] = field(default_factory=lambda: {
-        "high_load": 0.7,
-        "medium_load": 0.4,
-        "low_load": 0.2,
-    })
-    
-    # Output settings
-    score_smoothing_factor: float = 0.3  # EMA smoothing
-    min_confidence_for_action: float = 0.6
+    REACTIVE = "reactive"
+    PROACTIVE = "proactive"
 
 
 @dataclass
@@ -226,15 +107,15 @@ class FeedbackLayerConfig:
     llm_provider: Optional[str] = None  # "openai", "anthropic", "local"
     llm_model: Optional[str] = None
     llm_api_key: Optional[str] = None
-    
+
     # Generation settings
     max_feedback_items: int = 3
     max_message_length: int = 200
-    
+
     # Caching
     enable_cache: bool = True
     cache_ttl_seconds: float = 300.0
-    
+
     # Rate limiting
     max_generations_per_minute: int = 10
 
@@ -244,71 +125,38 @@ class FeedbackLayerConfig:
 
 
 @dataclass
-class EyeTrackerConfig:
-    """Configuration for Eye Tracker adapter."""
-    # Mode selection
-    mode: str = "SIMULATED"  # "SIMULATED", "TOBII", or "REPLAY"
-    filepath: Optional[str] = None  # Required if mode is REPLAY, path to recorded data file
-    device_id: Optional[str] = None  # Specific device ID or None for auto-select
-    
-    # Batching settings
-    batch_size: int = 12  # Number of samples per batch
-    flush_interval_ms: int = 16  # Max time between flushes in ms
-    
-    # Simulated mode settings
-    simulated_sampling_rate_hz: float = 120.0
-
-    fast_forward: bool = False  # For replay mode, whether to fast-forward through data
-    use_system_timestamps: bool = False  # For replay mode, whether to use system
-
-
-@dataclass
 class ControllerConfig:
     """Configuration for Runtime Controller."""
     # Mode
     operation_mode: OperationMode = OperationMode.REACTIVE
-    
-    # Feedback timing
-    feedback_cooldown_seconds: float = 5.0
-    min_score_for_feedback: float = 0.6  # Fallback if baseline score stats are unavailable
 
-    # Calibration
-    calibration_duration_seconds: float = 60
+    # Feedback timing
+    feedback_cooldown_seconds: float = 60.0
 
     # WebSocket settings
     websocket_host: str = "localhost"
     websocket_port: int = 8765
-    
+
     # API settings
     api_host: str = "localhost"
     api_port: int = 8080
-    
+
     # Logging
     log_level: str = "INFO"
     log_to_file: bool = True
     log_file_path: Optional[str] = None
-    
-    # Experiment settings
-    experiment_id: Optional[str] = None
-    participant_id: Optional[str] = None
 
 
 @dataclass
 class SystemConfig:
     """Complete system configuration."""
-    signal_processing: SignalProcessingConfig = field(default_factory=SignalProcessingConfig)
-    forecasting: ForecastingConfig = field(default_factory=ForecastingConfig)
-    training: TrainingConfig = field(default_factory=TrainingConfig)
-    reactive_tool: ReactiveToolConfig = field(default_factory=ReactiveToolConfig)
     feedback_layer: FeedbackLayerConfig = field(default_factory=FeedbackLayerConfig)
     controller: ControllerConfig = field(default_factory=ControllerConfig)
-    eye_tracker: EyeTrackerConfig = field(default_factory=EyeTrackerConfig)
 
     @classmethod
     def from_file(cls, path: str) -> "SystemConfig":
         """Load configuration from YAML file."""
         try:
-
             with open(path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
@@ -318,7 +166,7 @@ class SystemConfig:
             return _dict_to_dataclass(data, cls)
         except Exception as e:
             raise RuntimeError(f"[System Config] Failed to load configuration from {path}: {e}") from e
-        
+
     def to_file(self, path: str) -> None:
         """Save configuration to YAML file."""
         try:

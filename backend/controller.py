@@ -406,11 +406,22 @@ class RuntimeController:
                 )
             )
 
+    def _maybe_trigger_feedback_on_cooldown_expiry(self) -> None:
+        if not self._can_start_feedback_generation():
+            return
+        if self._feedback_generation_task is not None and not self._feedback_generation_task.done():
+            return
+        self._feedback_generation_task = asyncio.create_task(
+            self._generate_feedback_for_version(self._context_version, self._current_code_context)
+        )
+        self._logger.system("feedback_generation_triggered_by_cooldown_expiry", {}, level="DEBUG")
+
     async def _run_main_loop(self) -> None:
         self._logger.system("runtime_controller_main_loop_started", {}, level="DEBUG")
         while self._status != SystemStatus.DISCONNECTED:
             await asyncio.sleep(1)
             self._broadcast_system_status()
+            self._maybe_trigger_feedback_on_cooldown_expiry()
         self._logger.system("runtime_controller_main_loop_ended", {}, level="DEBUG")
 
     def _broadcast_system_status(self) -> None:

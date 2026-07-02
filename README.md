@@ -43,8 +43,7 @@ Then open the `vscode-extension` folder in VS Code and press **F5** to launch th
 ### 3. Connect
 
 1. Open the command palette and run **"Eye Tracking: Connect to Backend"**
-2. Run **"Eye Tracking: Connect Eye Tracker"**
-3. Open a code file — feedback will appear automatically based on your eye-tracking state
+2. Open a code file — feedback will appear automatically
 
 ## Configuration
 
@@ -69,7 +68,6 @@ Copy `backend/config.example.yaml` to `backend/config.yaml`. All options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `operation_mode` | `reactive` | Operation mode: `reactive` (respond to current state), `proactive` (predict 30s ahead), `control` (no feedback), `questionnaire` (UI only) |
 | `feedback_cooldown_seconds` | `60.0` | Minimum seconds between automatic feedback deliveries |
 | `websocket_host` | `localhost` | WebSocket server host |
 | `websocket_port` | `8765` | WebSocket server port |

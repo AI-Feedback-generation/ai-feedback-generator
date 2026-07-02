@@ -1,6 +1,6 @@
 # AI Feedback Generator
 
-A VS Code extension that uses real-time eye tracking to estimate developer cognitive load and deliver context-aware AI feedback.
+A VS Code extension that monitors editor activity to deliver context-aware AI feedback.
 
 ## Requirements
 
@@ -69,11 +69,12 @@ Copy `backend/config.example.yaml` to `backend/config.yaml`. All options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `feedback_cooldown_seconds` | `30.0` | Minimum seconds between automatic feedback deliveries |
+| `operation_mode` | `reactive` | Operation mode: `reactive` (respond to current state), `proactive` (predict 30s ahead), `control` (no feedback), `questionnaire` (UI only) |
+| `feedback_cooldown_seconds` | `60.0` | Minimum seconds between automatic feedback deliveries |
 | `websocket_host` | `localhost` | WebSocket server host |
 | `websocket_port` | `8765` | WebSocket server port |
 | `api_host` | `localhost` | REST API host |
 | `api_port` | `8080` | REST API port |
 | `log_level` | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `log_to_file` | `true` | Whether to write logs to a file |
-| `log_file_path` | `logs/ai_feedback_generator.log` | Log file location |
+| `log_to_file` | `true` | Whether to write logs to CSV files |
+| `log_file_path` | `logs/ai_feedback_generator.log` | Base path for log files — three files are written alongside it: `_experiment.csv`, `_system.csv`, `_feedback.csv` |

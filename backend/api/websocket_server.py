@@ -11,7 +11,7 @@ import json
 import uuid
 
 from backend.api.serialization import json_safe
-from backend.services.logger_service import get_logger
+from backend.logger_service import get_logger
 from backend.types.messages import MessageType, WebSocketMessage
 
 # Type alias for message handlers

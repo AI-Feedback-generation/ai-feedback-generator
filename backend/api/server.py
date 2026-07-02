@@ -11,10 +11,10 @@ import signal
 
 from backend.api.serialization import json_safe
 from backend.types import SystemConfig
-from backend.core import RuntimeController
+from backend.controller import RuntimeController
 from backend.api.websocket_server import WebSocketServer
 from backend.api.rest_api import HttpMethod, RestAPI
-from backend.services.logger_service import get_logger
+from backend.logger_service import get_logger
 from backend.types.code_context import CodeContext
 from backend.types.messages import MessageType, WebSocketMessage
 from backend.types.domain_events import DomainEvent, DomainEventType

@@ -4,34 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A VS Code extension that uses real-time eye tracking (Tobii hardware) to estimate developer cognitive load, then delivers context-aware AI feedback via LLM. The system has three layers: signal processing (gaze → features), user state scoring (reactive/ML), and feedback generation (OpenAI). It supports reactive (real-time) and proactive (30s-ahead prediction) operation modes.
+A VS Code extension that monitors editor activity (active file, cursor position, diagnostics) to estimate developer context and deliver AI feedback via LLM. The backend runs as a local Python server; the extension connects over WebSocket and REST.
 
 ## Commands
 
 ### Backend (Python 3.11+)
 ```bash
 python -m backend.main --config backend/config.yaml   # start backend
-python -m backend.training.train_xgboost --config backend/config.yaml --split-dir DIR  # train XGBoost model
+python -m backend.main --debug                        # with debug logging
 ```
 
 ### VS Code Extension
 ```bash
 cd vscode-extension
-npm install:all       # installs extension + webview dependencies
+npm run install:all   # installs extension + webview dependencies
 npm run compile       # one-shot TypeScript compile
 npm run watch         # continuous compile
-npm run build         # production build (includes webview)
+npm run build         # production build (compiles webview then extension)
 npm run lint          # ESLint
 npm run test          # extension tests
 ```
 
-### Webview UI
+### Webview UI (standalone dev)
 ```bash
 cd vscode-extension/webview-ui
 npm run dev           # Vite dev server
 npm run build         # production build → build/
-npm run lint
-npm run format        # Prettier
 ```
 
 ### Full-stack debug
@@ -40,45 +38,47 @@ Use the "Full Stack (Backend + Extension)" compound config in `.vscode/launch.js
 ## Architecture
 
 ```
-Eye Tracker (120 Hz) → Signal Processing (2 Hz features) → Reactive/Forecasting Tool → Feedback Layer (LLM) → VS Code Extension (inline decorations + sidebar)
+VS Code Extension → WebSocket (port 8765) → RuntimeController → FeedbackLayer (LLM) → DomainEvent → WebSocket → Extension
+                  → REST API (port 8080)  ↗
 ```
 
 **Backend** (`backend/`) — Python asyncio
 
 | Module | Role |
 |--------|------|
-| `main.py` | Entry point: CLI args, config loading, server startup |
-| `core/runtime_controller.py` | Central orchestrator: state, mode switching, feedback timing/cooldowns |
-| `api/server.py` | WebSocket server (port 8765) + REST API (port 8080); wires all components |
-| `layers/signal_processing.py` | 1s windows, 0.5s stride; computes fixation/saccade/pupil/IPA features |
-| `layers/reactive_tool.py` | Rule-based + ML user state scoring (0–1 cognitive load) |
-| `layers/forecasting_tool.py` | XGBoost inference; predicts user state 30s ahead |
-| `layers/feedback_layer.py` | LLM prompt engineering, caching, rate limiting |
-| `types/config.py` | Dataclass config hierarchy; deserializes `config.yaml` |
-| `services/eye_tracker/` | Adapters for Tobii hardware, simulated, and replay modes |
-| `training/train_xgboost.py` | Participant-level train/val/test split, model serialization to `models/trained/latest.*` |
+| `main.py` | Entry point: CLI args, config loading, logger init, server startup |
+| `controller.py` | Central orchestrator: receives `CodeContext`, runs cooldown logic, triggers `FeedbackLayer`, emits `DomainEvent`s |
+| `feedback_layer.py` | LLM prompt engineering, TTL cache, rate limiting, in-flight dedup |
+| `logger_service.py` | Three log categories: `system` (printed + CSV), `experiment` (CSV), `feedback` (CSV); real-time file output when `log_to_file` is set |
+| `api/server.py` | Wires WebSocket + REST + RuntimeController together (`_wire_components`) |
+| `api/websocket_server.py` | WebSocket server; routes typed messages to registered handlers |
+| `api/rest_api.py` | aiohttp REST server; routes registered via `register_route` |
+| `llm/` | Provider abstraction (OpenAI, etc.) |
+| `types/` | Shared dataclasses: `CodeContext`, `FeedbackItem`, `DomainEvent`, `SystemConfig` |
+
+**Message flow (inbound):** Extension sends `CONTEXT_UPDATE` over WebSocket → `server.py` handler calls `controller.handle_context_update(CodeContext)` → controller debounces and calls `FeedbackLayer.generate()` → emits `FEEDBACK_READY` `DomainEvent` → `server.py` converts to `FEEDBACK_DELIVERY` WebSocket message → sent back to originating client.
+
+**REST API routes:**
+- `GET /status` — system status
+- `GET /feedback/manual_send` — trigger feedback immediately
+- `POST /feedback/interaction` — log user interaction with a feedback item
+- `PUT /cooldown` — update cooldown at runtime
 
 **VS Code Extension** (`vscode-extension/src/`) — TypeScript
 
-Key files: `extension.ts` (commands, editor events, WebSocket lifecycle), `WebSocketClient.ts` (typed WS wrapper), `FeedbackRenderer.ts` (inline decorations), `WebviewViewProvider.ts` (sidebar panel host).
+| File | Role |
+|------|------|
+| `extension.ts` | Activation, command registration, WebSocket lifecycle, editor event wiring |
+| `context-collector.ts` | Captures `CodeContext` from VS Code APIs (active editor, cursor, diagnostics, visible range) |
+| `websocket-client.ts` | Typed WebSocket wrapper; handles reconnect |
+| `feedback-renderer.ts` | Inline editor decorations |
+| `webview-provider.ts` | Sidebar panel host |
+| `api.ts` | REST calls to backend |
 
-**Webview UI** (`vscode-extension/webview-ui/src/`) — React 18 + `@vscode/webview-ui-toolkit`
-
-Communicates with extension host via `vscode.postMessage`. Main components: `StatusPanel`, `FeedbackList`, `Controls`, `ExperimentIDs`.
+**Webview UI** (`vscode-extension/webview-ui/src/`) — React 18 + `@vscode/webview-ui-toolkit`. Communicates with the extension host via `vscode.postMessage`.
 
 ## Configuration
 
-Copy `config.example.yaml` → `config.yaml` before running the backend. Key config sections: `signal_processing`, `forecasting`, `reactive_tool`, `feedback_layer` (LLM provider/model), `controller` (cooldown, operation mode), `eye_tracker` (Simulated/Replay/Tobii).
+Copy `backend/config.example.yaml` → `backend/config.yaml`. The config maps to two dataclasses in `backend/types/config.py`: `FeedbackLayerConfig` and `ControllerConfig`.
 
-## Operation Modes
-
-- **Reactive**: respond to current user state in real time
-- **Proactive**: predict state 30s ahead and intervene early
-- **Control**: no feedback (baseline)
-- **Questionnaire**: UI-only (experiment support)
-
-## Key Dependencies
-
-- **Python**: `tobii-research` (manual wheel install from Tobii SDK), `openai`, `xgboost`, `websockets`, `aiohttp`, `structlog`, `PyWavelets`
-- **Extension**: `ws` (WebSocket client), `@types/vscode`
-- **Webview**: React 18, `@vscode/webview-ui-toolkit`, Vite 5
+Logging writes three CSV files derived from `log_file_path` (e.g. `logs/ai_feedback_generator.log` → `logs/ai_feedback_generator_experiment.csv` etc.) when `log_to_file: true`.

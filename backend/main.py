@@ -82,7 +82,7 @@ def load_config(config_path: str | None) -> "SystemConfig":
         System configuration.
     """
     from backend.types import SystemConfig
-    from backend.services.logger_service import get_logger
+    from backend.logger_service import get_logger
     
     logger = get_logger()
 
@@ -119,17 +119,17 @@ def setup_logging(debug: bool = False) -> None:
 async def run_server(config: "SystemConfig") -> None:
     """
     Run the backend server.
-    
+
     Args:
         config: System configuration.
     """
     from backend.api.server import Server
-    from backend.services.logger_service import get_logger
+    from backend.logger_service import get_logger
     import signal
-    
+
     server = Server(config)
     logger = get_logger()
-    
+
     # Set up signal handlers for graceful shutdown
     loop = asyncio.get_running_loop()
     shutdown_event = asyncio.Event()
@@ -164,22 +164,25 @@ def main() -> int:
     setup_logging(debug=args.debug)
     
     # Initialize logger service with configured levels
-    from backend.services.logger_service import initialize_logger
-    logger = initialize_logger(
-        system_level=args.system_log_level,
-    )
-    
+    from backend.logger_service import initialize_logger
+    logger = initialize_logger(system_level=args.system_log_level)
+
     # Load configuration
     config = load_config(args.config)
-    
+
+    # Re-initialize logger now that config is loaded, with file output if enabled
+    if config.controller.log_to_file and config.controller.log_file_path:
+        logger = initialize_logger(
+            system_level=args.system_log_level,
+            log_base_path=config.controller.log_file_path,
+        )
+
     # Override with command line arguments
     config.controller.websocket_host = args.host
     config.controller.websocket_port = args.ws_port
     config.controller.api_host = args.host
     config.controller.api_port = args.api_port
-    
-    # TODO: Set operation mode from args
-    
+
     logger.system(
         "backend_startup",
         {

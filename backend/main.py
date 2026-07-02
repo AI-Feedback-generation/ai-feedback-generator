@@ -156,6 +156,32 @@ async def run_server(config: "SystemConfig") -> None:
     finally:
         await server.stop()
 
+def _warn_if_no_llm_api(config: "SystemConfig", logger: "LoggerService") -> None:
+    import os
+    provider = config.feedback_layer.llm_provider
+    api_key = config.feedback_layer.llm_api_key
+
+    _PROVIDERS_REQUIRING_KEY = {"openai", "anthropic"}
+    _ENV_KEY_MAP = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }
+
+    if not provider or provider not in _PROVIDERS_REQUIRING_KEY:
+        return
+
+    env_var = _ENV_KEY_MAP.get(provider)
+    if not api_key and not (env_var and os.getenv(env_var)):
+        logger.system(
+            "llm_api_key_not_set",
+            {
+                "provider": provider,
+                "hint": f"Set llm_api_key in config.yaml or export {env_var}",
+            },
+            level="WARNING",
+        )
+
+
 def main() -> int:
     """Main entry point."""
     args = parse_args()
@@ -182,6 +208,8 @@ def main() -> int:
     config.controller.websocket_port = args.ws_port
     config.controller.api_host = args.host
     config.controller.api_port = args.api_port
+
+    _warn_if_no_llm_api(config, logger)
 
     logger.system(
         "backend_startup",
